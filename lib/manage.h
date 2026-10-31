@@ -43,7 +43,11 @@
 #define TABLE_NAME_LEN _MAX_PATH
 #define INFO_STRING_LEN 100
 #define MAX_PAGELOCKS 1000
+#ifdef __PS2__ // locks of a local table (the editor's): none
+#define MAX_TRACKLOCKS 64
+#else
 #define MAX_TRACKLOCKS 5000
+#endif
 
 #define PAGETYPE_UNKNOWN 0
 #define PAGETYPE_TEXTURE 1

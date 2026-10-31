@@ -65,6 +65,21 @@ terrain_render_info Terrain_list[MAX_CELLS_TO_RENDER];
 
 uint16_t *Terrain_rotate_list; // which points have been sub/rotated this frame
 g3Point *World_point_buffer; // Rotated points
+#ifdef __PS2__
+g3Point *Terrain_points;
+uint16_t *Terrain_point_slot;
+int Terrain_points_used;
+
+void PS2PointBuffers() {
+  if (World_point_buffer)
+    return;
+  World_point_buffer = (g3Point *)mem_malloc(ROOM_POINTS * sizeof(g3Point));
+  Terrain_points = (g3Point *)mem_malloc((TERRAIN_POINTS + 1) * sizeof(g3Point));
+  Terrain_point_slot = (uint16_t *)mem_malloc(TERRAIN_WIDTH * TERRAIN_DEPTH * sizeof(uint16_t));
+  if (!World_point_buffer || !Terrain_points || !Terrain_point_slot)
+    Error("Out of memory for the rotated points");
+}
+#endif
 
 // The min/max values for a particular region of terrain
 uint8_t *Terrain_min_height_int[7];
@@ -75,7 +90,32 @@ uint8_t *Terrain_max_height_int[7];
 uint8_t Terrain_dynamic_table[TERRAIN_WIDTH * TERRAIN_DEPTH];
 
 // Terrain normals depending on LOD
+#ifdef __PS2__
+ps2_terrain_normals TerrainNormals[MAX_TERRAIN_LOD];
+
+terrain_normals ps2_terrain_normals::operator[](int cell) const {
+  terrain_normals tn;
+  int i = cell / TERRAIN_WIDTH, t = cell % TERRAIN_WIDTH;
+  if (i >= TERRAIN_DEPTH - 1 || t >= TERRAIN_WIDTH - 1) {
+    tn.normal1.x = tn.normal1.z = tn.normal2.x = tn.normal2.z = 0;
+    tn.normal1.y = tn.normal2.y = 1.0f;
+    return tn;
+  }
+  vector a, b, c;
+  float y0 = Terrain_seg[cell].y, y1 = Terrain_seg[cell + TERRAIN_WIDTH].y,
+        y2 = Terrain_seg[cell + TERRAIN_WIDTH + 1].y, y3 = Terrain_seg[cell + 1].y;
+  a.x = t * TERRAIN_SIZE, a.y = y0, a.z = i * TERRAIN_SIZE;
+  b.x = t * TERRAIN_SIZE, b.y = y1, b.z = (i + 1) * TERRAIN_SIZE;
+  c.x = (t + 1) * TERRAIN_SIZE, c.y = y2, c.z = (i + 1) * TERRAIN_SIZE;
+  vm_GetNormal(&tn.normal1, &a, &b, &c);
+  b.x = (t + 1) * TERRAIN_SIZE, b.y = y2, b.z = (i + 1) * TERRAIN_SIZE;
+  c.x = (t + 1) * TERRAIN_SIZE, c.y = y3, c.z = i * TERRAIN_SIZE;
+  vm_GetNormal(&tn.normal2, &a, &b, &c);
+  return tn;
+}
+#else
 terrain_normals *TerrainNormals[MAX_TERRAIN_LOD];
+#endif
 
 // Max deltas per terrain lod block
 float *TerrainDeltaBlocks[MAX_TERRAIN_LOD];
@@ -437,7 +477,7 @@ void DeformTerrainPoint(int x, int z, int change_height) {
       c.y = tseg2->y;
       c.z = (i + 1) * TERRAIN_SIZE;
 
-      vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal1, &a, &b, &c);
+      TN_STORE(vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal1, &a, &b, &c));
 
       // Now do lower right triangle
       a.x = t * TERRAIN_SIZE;
@@ -452,7 +492,7 @@ void DeformTerrainPoint(int x, int z, int change_height) {
       c.y = tseg3->y;
       c.z = (i)*TERRAIN_SIZE;
 
-      vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal2, &a, &b, &c);
+      TN_STORE(vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal2, &a, &b, &c));
     }
   }
 }
@@ -539,8 +579,8 @@ void BuildTerrainNormals() {
 
   // Set all to be initially up
   for (i = 0; i < TERRAIN_WIDTH * TERRAIN_DEPTH; i++) {
-    TerrainNormals[MAX_TERRAIN_LOD - 1][i].normal1 = up_norm;
-    TerrainNormals[MAX_TERRAIN_LOD - 1][i].normal2 = up_norm;
+    TN_STORE(TerrainNormals[MAX_TERRAIN_LOD - 1][i].normal1 = up_norm);
+    TN_STORE(TerrainNormals[MAX_TERRAIN_LOD - 1][i].normal2 = up_norm);
   }
 
   for (l = MAX_TERRAIN_LOD - 1; l < MAX_TERRAIN_LOD; l++) {
@@ -567,7 +607,7 @@ void BuildTerrainNormals() {
         c.y = tseg2->y;
         c.z = (i + simplemul) * TERRAIN_SIZE;
 
-        vm_GetNormal(&TerrainNormals[l][z * (TERRAIN_WIDTH / simplemul) + x].normal1, &a, &b, &c);
+        TN_STORE(vm_GetNormal(&TerrainNormals[l][z * (TERRAIN_WIDTH / simplemul) + x].normal1, &a, &b, &c));
 
         // Now do lower right triangle
         a.x = t * TERRAIN_SIZE;
@@ -582,7 +622,7 @@ void BuildTerrainNormals() {
         c.y = tseg3->y;
         c.z = (i)*TERRAIN_SIZE;
 
-        vm_GetNormal(&TerrainNormals[l][z * (TERRAIN_WIDTH / simplemul) + x].normal2, &a, &b, &c);
+        TN_STORE(vm_GetNormal(&TerrainNormals[l][z * (TERRAIN_WIDTH / simplemul) + x].normal2, &a, &b, &c));
       }
     }
   }
@@ -599,7 +639,8 @@ void GenerateTerrainLight() {
   vm_NormalizeVector(&camera_light);
 
   for (i = 0; i < TERRAIN_WIDTH * TERRAIN_DEPTH; i++) {
-    float dp = (-vm_DotProduct(&camera_light, &TerrainNormals[MAX_TERRAIN_LOD - 1][i].normal1) + 1.0) / 2;
+    vector normal1 = TerrainNormals[MAX_TERRAIN_LOD - 1][i].normal1;
+    float dp = (-vm_DotProduct(&camera_light, &normal1) + 1.0) / 2;
     Terrain_seg[i].l = Float_to_ubyte(dp);
     Terrain_seg[i].r = Terrain_seg[i].l;
     Terrain_seg[i].g = Terrain_seg[i].l;
@@ -613,7 +654,7 @@ void CloseTerrain(void) {
   int i;
 
   for (i = MAX_TERRAIN_LOD - 1; i < MAX_TERRAIN_LOD; i++)
-    mem_free(TerrainNormals[i]);
+    TN_STORE(mem_free(TerrainNormals[i]));
 
   for (i = 0; i < 7; i++) {
     if (Terrain_min_height_int[i])
@@ -951,8 +992,13 @@ void InitTerrain(void) {
     Terrain_rotate_list = (uint16_t *)mem_malloc(TERRAIN_WIDTH * TERRAIN_DEPTH * sizeof(uint16_t));
     ASSERT(Terrain_rotate_list);
 
+#ifdef __PS2__
+    // made when the first frame is drawn (PS2PointBuffers): not during the
+    // loading of a level
+#else
     World_point_buffer = (g3Point *)mem_malloc(TERRAIN_WIDTH * TERRAIN_DEPTH * sizeof(g3Point));
     ASSERT(World_point_buffer);
+#endif
 
     // Allocate space for lod delta tree and unique texture IDs
     for (i = 0; i < MAX_TERRAIN_LOD - 1; i++) {
@@ -969,8 +1015,8 @@ void InitTerrain(void) {
     w = TERRAIN_WIDTH >> ((MAX_TERRAIN_LOD - 1) - i);
     h = TERRAIN_DEPTH >> ((MAX_TERRAIN_LOD - 1) - i);
 
-    TerrainNormals[i] = (terrain_normals *)mem_malloc(w * h * sizeof(terrain_normals));
-    memset(TerrainNormals[i], 0, w * h * sizeof(terrain_normals));
+    TN_STORE(TerrainNormals[i] = (terrain_normals *)mem_malloc(w * h * sizeof(terrain_normals)));
+    TN_STORE(memset(TerrainNormals[i], 0, w * h * sizeof(terrain_normals)));
   }
 
   // Allocate space for our min/max tables
@@ -1146,7 +1192,7 @@ void BuildNormalForTerrainSegment(int n) {
   c.y = Terrain_seg[(i * TERRAIN_WIDTH) + (t + TERRAIN_WIDTH + 1)].y;
   c.z = (i + 1) * TERRAIN_SIZE;
 
-  vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal1, &a, &b, &c);
+  TN_STORE(vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal1, &a, &b, &c));
 
   a.x = t * TERRAIN_SIZE;
   a.y = Terrain_seg[(i * TERRAIN_WIDTH) + (t)].y;
@@ -1160,7 +1206,7 @@ void BuildNormalForTerrainSegment(int n) {
   c.y = Terrain_seg[(i * TERRAIN_WIDTH) + (t + 1)].y;
   c.z = (i)*TERRAIN_SIZE;
 
-  vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal2, &a, &b, &c);
+  TN_STORE(vm_GetNormal(&TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal2, &a, &b, &c));
 }
 
 // Builds the vertex normal for terrain segment n
@@ -1186,10 +1232,10 @@ void BuildLightingNormalForSegment(int n) {
 
   vm_MakeZero(&temp);
 
-  vm_AddVectors(&temp, &temp, &TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + hback].normal2);
-  vm_AddVectors(&temp, &temp, &TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal2);
-  vm_AddVectors(&temp, &temp, &TerrainNormals[MAX_TERRAIN_LOD - 1][(vback)*TERRAIN_WIDTH + hback].normal1);
-  vm_AddVectors(&temp, &temp, &TerrainNormals[MAX_TERRAIN_LOD - 1][(vback)*TERRAIN_WIDTH + t].normal2);
+  temp += TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + hback].normal2;
+  temp += TerrainNormals[MAX_TERRAIN_LOD - 1][i * TERRAIN_WIDTH + t].normal2;
+  temp += TerrainNormals[MAX_TERRAIN_LOD - 1][(vback)*TERRAIN_WIDTH + hback].normal1;
+  temp += TerrainNormals[MAX_TERRAIN_LOD - 1][(vback)*TERRAIN_WIDTH + t].normal2;
 
   vm_AverageVector(&temp, 4);
   //	vm_NormalizeVectorFast (&temp);

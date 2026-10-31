@@ -653,7 +653,21 @@ void PageInTexture(int n, bool resize) {
 
   texture *texp = &GameTextures[n];
 
+#ifdef __PS2__
+  // in maxsdk_gl already (and the game's copy gone): nothing to page in
+  extern bool bm_PS2InGL(int handle);
+  if (!(texp->flags & (TF_ANIMATED | TF_PROCEDURAL)) && bm_PS2InGL(texp->bm_handle))
+    return;
+  // made smaller at once below: paged in into a buffer, not the heap
+  extern bool Bm_scratch_next;
+  Bm_scratch_next = resize && (Mem_low_memory_mode || Low_vidmem) &&
+                    !(texp->flags & (TF_TEXTURE_32 | TF_TEXTURE_256 | TF_PROCEDURAL)) &&
+                    (GameBitmaps[texp->bm_handle].flags & BF_NOT_RESIDENT);
+#endif
   bm_data(texp->bm_handle, 0);
+#ifdef __PS2__
+  Bm_scratch_next = false;
+#endif
 
 #ifndef EDITOR
   if (resize == true && (Mem_low_memory_mode || Low_vidmem))
@@ -713,6 +727,21 @@ void PageInTexture(int n, bool resize) {
         texp->bm_handle = dest_bm;
       }
     }
+  }
+#endif
+#ifdef __PS2__
+  extern void bm_PS2Unscratch(int handle);
+  bm_PS2Unscratch(texp->bm_handle);
+#endif
+#ifdef __PS2__
+  // to maxsdk_gl now, the game's copy dropped (only drawn): the level's
+  // textures are not kept twice, nor during the rest of the loading (the
+  // renderer is not set up again for the game: game.cpp)
+  if (!(texp->flags & (TF_ANIMATED | TF_PROCEDURAL)) && texp->bm_handle > 0) {
+    extern void bm_PS2Drop(int handle);
+    extern void rend_PS2Preload(int bm_handle);
+    bm_PS2Drop(texp->bm_handle);
+    rend_PS2Preload(texp->bm_handle);
   }
 #endif
 }

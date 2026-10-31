@@ -27,7 +27,11 @@ extern int Join_response_strings[];
 
 // extern d3_net_game_data D3_tracker_info;
 
+#ifdef __PS2__ // no network play: its tables of changed objects are not used
+#define MAX_CHANGED_OBJECTS 1
+#else
 #define MAX_CHANGED_OBJECTS 700
+#endif
 
 extern int Changed_anim[MAX_CHANGED_OBJECTS][MAX_NET_PLAYERS];
 extern uint16_t Num_changed_anim[MAX_NET_PLAYERS];

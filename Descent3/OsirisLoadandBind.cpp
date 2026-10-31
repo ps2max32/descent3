@@ -400,6 +400,9 @@
  */
 
 #include "osiris_dll.h"
+#ifdef __PS2__
+#include <dlfcn.h>
+#endif
 #include "pserror.h"
 #include "mono.h"
 #include "cfile.h"
@@ -912,6 +915,14 @@ int _get_full_path_to_module(char *module_name, char *fullpath, char *basename) 
 
   // determine real name of script
   mod_GetRealModuleName(adjusted_name, modfilename);
+
+#ifdef __PS2__
+  // the scripts are linked in (ps2/ps2_dl.cpp): found by their name
+  if (dlopen(adjusted_fname, 0)) {
+    strcpy(fullpath, adjusted_fname);
+    return -1;
+  }
+#endif
 
   int exist = cfexist(modfilename);
   switch (exist) {

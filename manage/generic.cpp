@@ -2198,7 +2198,7 @@ void mng_LoadNetGenericPage(CFILE *infile, bool overlay) {
   mngs_generic_page genericpage;
   memset(&genericpage, 0, sizeof(mngs_generic_page));
 
-  if (mng_ReadNewGenericPage(infile, &genericpage)) {
+  if (mng_ReadGenericPage(infile, &genericpage)) {
     int n = FindObjectIDName(genericpage.objinfo_struct.name);
     if (n != -1) {
       if (overlay) {
@@ -2222,7 +2222,7 @@ void mng_LoadLocalGenericPage(CFILE *infile) {
   int ok = 0;
   memset(&genericpage, 0, sizeof(mngs_generic_page));
 
-  if (mng_ReadNewGenericPage(infile, &genericpage)) {
+  if (mng_ReadGenericPage(infile, &genericpage)) {
     // Check to see if this is a local copy that is supposed
     // to go over a network copy (supersede the net copy)
 

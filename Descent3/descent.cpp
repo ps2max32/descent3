@@ -514,7 +514,11 @@ void Descent3() {
 
     // Save settings to registry
     SaveGameSettings();
+#ifdef __PS2__ // built without exceptions: never runs
+  } else if (cfile_error *cfe = nullptr) {
+#else
   } catch (cfile_error *cfe) {
+#endif
     Error(TXT_D3ERROR1, (cfe->read_write == CFE_READING) ? TXT_READING : TXT_WRITING, cfe->file->name, cfe->msg);
   }
 }

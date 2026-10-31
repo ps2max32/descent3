@@ -954,7 +954,11 @@ void SetScreenMode(int sm, bool force_res_change) {
     if (sm == SM_GAME) {
       scr_width = Video_res_list[Game_video_resolution].width;
       scr_height = Video_res_list[Game_video_resolution].height;
+#ifdef __PS2__
+      scr_bitdepth = 32; // as the menus': no renderer set up again (all textures anew)
+#else
       scr_bitdepth = Render_preferred_bitdepth;
+#endif
     } else {
       scr_width = FIXED_SCREEN_WIDTH;
       scr_height = FIXED_SCREEN_HEIGHT;

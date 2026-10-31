@@ -1764,6 +1764,8 @@ void IntroScreen() {
 
 #ifdef DEMO
   int bm_handle = bm_AllocLoadFileBitmap("demomenu.ogf", 0);
+  if (bm_handle <= 0) // the 1998 demo has mainmenu.ogf
+    bm_handle = bm_AllocLoadFileBitmap("mainmenu.ogf", 0);
 #else
   int bm_handle = bm_AllocLoadFileBitmap("oemmenu.ogf", 0);
 #endif

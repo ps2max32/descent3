@@ -1117,7 +1117,7 @@ void mng_AssignTextureToTexPage(int n, mngs_texture_page *texpage) {
 void mng_LoadNetTexturePage(CFILE *infile, bool overlay) {
   memset(&texpage1, 0, sizeof(mngs_texture_page));
 
-  if (mng_ReadNewTexturePage(infile, &texpage1)) {
+  if (mng_ReadTexturePage(infile, &texpage1)) {
     int n;
     n = FindTextureName(texpage1.tex_struct.name);
     if (n != -1) {
@@ -1141,7 +1141,7 @@ void mng_LoadLocalTexturePage(CFILE *infile) {
   int ok = 0;
   memset(&texpage1, 0, sizeof(mngs_texture_page));
 
-  if (mng_ReadNewTexturePage(infile, &texpage1)) {
+  if (mng_ReadTexturePage(infile, &texpage1)) {
     int i = FindTextureName(texpage1.tex_struct.name);
     if (i != -1) {
       // Make sure we really have this page checked out

@@ -1030,7 +1030,7 @@ bool ProcessCommandLine() {
     exit_menu = 1;
 #endif
   }
-#ifndef RELEASE
+#if !defined(RELEASE) || defined(__PS2__) // PS2: test runs start a level
   int t = FindArg("-loadlevel");
   if (t) {
     SimpleStartLevel(GameArgs[t + 1]);

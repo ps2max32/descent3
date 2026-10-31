@@ -192,6 +192,9 @@ static inline void INADDR_GET_SUN_SUNB(struct in_addr *st, uint8_t *s_b1, uint8_
 #elif defined(POSIX)
 // Linux includes/defines
 
+#ifdef __PS2__
+#include "ps2_net.h"
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
@@ -207,6 +210,7 @@ static inline void INADDR_GET_SUN_SUNB(struct in_addr *st, uint8_t *s_b1, uint8_
 #include <errno.h>
 #include <pthread.h>
 #include <fcntl.h>
+#endif
 
 // rcg06212000 my SDL adds.
 #include "SDL.h"
@@ -453,7 +457,11 @@ int nw_psnet_buffer_get_next_by_packet_id(uint8_t *data, int *length, uint32_t p
 #define MIN_NET_RETRYTIME .2
 #define NETTIMEOUT 300        // Time after receiving the last packet before we drop that user
 #define NETHEARTBEATTIME 10   // How often to send a heartbeat
+#ifdef __PS2__ // no network
+#define MAXRELIABLESOCKETS 2
+#else
 #define MAXRELIABLESOCKETS 40 // Max reliable sockets to open at once...
+#endif
 #define NETBUFFERSIZE 600     // Max size of a network packet
 
 // Network Types

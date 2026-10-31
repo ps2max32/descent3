@@ -1247,6 +1247,10 @@
 #include <algorithm>
 
 #include "LoadLevel.h"
+#ifdef __PS2__
+extern "C" void ps2_mem_report(const char *when); // ps2/ps2_mem.c
+extern "C" void ps2_mem_reset_peak(void);
+#endif
 
 #include "cfile.h"
 
@@ -3603,6 +3607,11 @@ extern bool Disable_editor_rendering;
 // Load a level file
 // Returns 1 if file read ok, else 0
 int LoadLevel(char *filename, void (*cb_fn)(const char *, int, int)) {
+#ifdef __PS2__
+  ps2_mem_reset_peak(); // the peak of loading this level (MEMLOG)
+  extern void bm_PS2PageOut();
+  bm_PS2PageOut(); // what the level does not need in memory now
+#endif
   CFILE *ifile;
   char tag[4];
   int n, i, retval = 1;
@@ -4046,7 +4055,11 @@ int LoadLevel(char *filename, void (*cb_fn)(const char *, int, int)) {
     }
 
   } // try
+#ifdef __PS2__ // built without exceptions: never runs
+  else if (cfile_error *cfe = nullptr) {
+#else
   catch (cfile_error *cfe) {
+#endif
     mprintf(0, "Error reading: file = <%s>, error = \"%s\"\n", cfe->file->name, cfe->msg);
     ASSERT(cfe->read_write == CFE_READING);
 #if (defined(EDITOR) || defined(NEWEDITOR))
@@ -4162,6 +4175,19 @@ end_loadlevel:
 
   // Debug log the current sum
   mprintf(0, "End of load level checksum = %s\n", GetCurrentSumString());
+#ifdef __PS2__
+  {
+    extern int Num_of_lightmap_info;
+    mprintf(0, "PS2: level uses %d lightmap infos\n", Num_of_lightmap_info);
+    ps2_mem_report("level loaded");
+#ifdef PS2_MEMLOG
+    for (int b = 0; b < MAX_BITMAPS; b++)
+      if (GameBitmaps[b].used && GameBitmaps[b].data16 && !(GameBitmaps[b].flags & BF_NOT_RESIDENT))
+        mprintf(0, "bmres %d %s %dx%d f%x u%d\n", b, GameBitmaps[b].name, GameBitmaps[b].width,
+                GameBitmaps[b].height, GameBitmaps[b].flags, GameBitmaps[b].used);
+#endif
+  }
+#endif
   // Done
   return retval;
 }
@@ -5304,7 +5330,11 @@ int SaveLevel(char *filename, bool f_save_room_AABB) {
     // Close chunk
     EndChunk(ofile, chunk_start_pos);
 
+#ifdef __PS2__ // built without exceptions: never runs
+  } else if (cfile_error *cfe = nullptr) {
+#else
   } catch (cfile_error *cfe) {
+#endif
     mprintf(0, "Error writing: file = <%s>, msg = \"%s\"\n", cfe->file->name, cfe->msg);
     ASSERT(cfe->read_write == CFE_WRITING);
     EditorMessageBox("Error writing file %s: %s", cfe->file->name, cfe->msg);

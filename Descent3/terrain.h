@@ -41,7 +41,11 @@
 
 #define MAX_LOD_SIZE (1 << (MAX_TERRAIN_LOD - 1))
 
+#ifdef __PS2__ // more than the EE draws in a frame; 780 KiB less
+#define MAX_CELLS_TO_RENDER 4096
+#else
 #define MAX_CELLS_TO_RENDER 32768 // The maximum number of cells we can render in a frame
+#endif
 
 #define MAX_TERRAIN_HEIGHT 350.0f                              // Max height of our terrain
 #define TERRAIN_HEIGHT_INCREMENT (MAX_TERRAIN_HEIGHT / 255.0f) // Incremental jumps
@@ -179,7 +183,18 @@ struct terrain_normals {
 };
 
 extern uint8_t Terrain_dynamic_table[];
+#ifdef __PS2__
+// No table of 1.5 MiB: a cell's two normals made from its corners when asked
+// (the top level of detail only, as the game keeps)
+struct ps2_terrain_normals {
+  terrain_normals operator[](int cell) const;
+};
+extern ps2_terrain_normals TerrainNormals[MAX_TERRAIN_LOD];
+#define TN_STORE(x)
+#else
 extern terrain_normals *TerrainNormals[MAX_TERRAIN_LOD];
+#define TN_STORE(x) x
+#endif
 
 // Occlusion data for knowing what to draw
 extern uint8_t Terrain_occlusion_map[256][32];
@@ -252,6 +267,25 @@ extern int Num_terrain_selected;
 
 extern uint16_t *Terrain_rotate_list; // which points have been sub/rotated this frame
 extern g3Point *World_point_buffer; // Rotated points
+
+#ifdef __PS2__
+// The rooms' rotated points (World_point_buffer, ROOM_POINTS of them); the
+// terrain's are kept for the cells rotated this frame only (TERRAIN_POINTS,
+// one more for the cells beyond): 0.7 + 0.3 MiB, not 4.3.
+#define ROOM_POINTS 10000
+#define TERRAIN_POINTS 5000
+extern g3Point *Terrain_points;
+void PS2PointBuffers(); // made before the first frame
+extern uint16_t *Terrain_point_slot;
+extern int Terrain_points_used;
+extern uint16_t *Terrain_rotate_list;
+extern uint16_t TS_FrameCount;
+static inline g3Point &TerrainPoint(int cell) {
+  return Terrain_points[Terrain_rotate_list[cell] == TS_FrameCount ? Terrain_point_slot[cell] : TERRAIN_POINTS];
+}
+#else
+#define TerrainPoint(cell) World_point_buffer[cell]
+#endif
 
 #define TSEARCH_FOUND_TERRAIN 0
 #define TSEARCH_FOUND_MINE 1

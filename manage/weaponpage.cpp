@@ -1650,7 +1650,7 @@ void mng_LoadNetWeaponPage(CFILE *infile, bool overlay) {
   mngs_weapon_page weaponpage;
   memset(&weaponpage, 0, sizeof(mngs_weapon_page));
 
-  if (mng_ReadNewWeaponPage(infile, &weaponpage)) {
+  if (mng_ReadWeaponPage(infile, &weaponpage)) {
     int n = FindWeaponName(weaponpage.weapon_struct.name);
     if (n != -1) {
       if (overlay) {
@@ -1675,7 +1675,7 @@ void mng_LoadLocalWeaponPage(CFILE *infile) {
   int ok = 0;
   memset(&weaponpage, 0, sizeof(mngs_weapon_page));
 
-  if (mng_ReadNewWeaponPage(infile, &weaponpage)) {
+  if (mng_ReadWeaponPage(infile, &weaponpage)) {
     // Check to see if this is a local copy that is supposed
     // to go over a network copy (supersede the net copy)
 

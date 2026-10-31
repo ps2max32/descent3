@@ -441,7 +441,7 @@ void mng_LoadNetSoundPage(CFILE *infile, bool overlay) {
   mngs_sound_page soundpage;
   memset(&soundpage, 0, sizeof(mngs_sound_page));
 
-  if (mng_ReadNewSoundPage(infile, &soundpage)) {
+  if (mng_ReadSoundPage(infile, &soundpage)) {
     int n = FindSoundName(soundpage.sound_struct.name);
     if (n != -1) {
       if (overlay) {
@@ -462,7 +462,7 @@ void mng_LoadLocalSoundPage(CFILE *infile) {
   mngs_sound_page soundpage;
   int ok = 0;
   memset(&soundpage, 0, sizeof(mngs_sound_page));
-  if (mng_ReadNewSoundPage(infile, &soundpage)) {
+  if (mng_ReadSoundPage(infile, &soundpage)) {
     // Check to see if this is a local copy that is supposed
     // to go over a network copy (supersede the net copy)
     int i = FindSoundName(soundpage.sound_struct.name);

@@ -128,11 +128,29 @@
 // NOTE:  If you add a flag here, please check the function CopyFaceFlags()
 
 // UVLs for room verts
+#if defined(__PS2__) && defined(__cplusplus)
+// A lightmap coordinate (0 .. 1: LoadLevel clamps) in 16 bits: a level's face
+// vertices take 16 bytes, not 20 (PiccuStation: 470 KiB less)
+struct lm_uv16 {
+  uint16_t q;
+  operator float() const { return q * (1.0f / 65535.0f); }
+  lm_uv16 &operator=(float f) {
+    q = f <= 0 ? 0 : f >= 1 ? 65535 : (uint16_t)(f * 65535.0f + 0.5f);
+    return *this;
+  }
+};
+struct roomUVL {
+  float u, v; // texture coordinates
+  lm_uv16 u2, v2;
+  uint8_t alpha; // alpha for this vertex
+};
+#else
 struct roomUVL {
   float u, v; // texture coordinates
   float u2, v2;
   uint8_t alpha; // alpha for this vertex
 };
+#endif
 
 // an n-sided polygon used as part of a room or portal
 struct face {

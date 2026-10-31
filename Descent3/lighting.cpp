@@ -135,7 +135,11 @@ void InitDynamicLighting() {
   // Init our dynamic memory
   if (Mem_low_memory_mode) {
     // Just use 1 meg if in low mem mode
+#ifdef __PS2__
+    DYNAMIC_LIGHTMAP_MEMORY = 256000;
+#else
     DYNAMIC_LIGHTMAP_MEMORY = 500000;
+#endif
   }
 
   Dynamic_lightmap_memory = (uint16_t *)mem_malloc(DYNAMIC_LIGHTMAP_MEMORY);

@@ -95,6 +95,10 @@ int AllocLightmapInfo(int w, int h, int type, bool alloc_lightmap) {
 
   if (Num_of_lightmap_info > MAX_LIGHTMAP_INFOS)
     Int3(); // Get Jason, ran out of lightmaps!
+#ifdef __PS2__
+  if (Num_of_lightmap_info >= MAX_LIGHTMAP_INFOS)
+    Error("Out of lightmap infos (%d: MAX_LIGHTMAP_INFOS)", MAX_LIGHTMAP_INFOS);
+#endif
 
   n = Free_lmi_list[Num_of_lightmap_info++];
   ASSERT(LightmapInfo[n].used == 0);

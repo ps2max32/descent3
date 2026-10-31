@@ -449,6 +449,22 @@ void NewUIInit() {
     NewUI_bitmap_list[NEWUIBMP_SLIDER_BAR].bmp = -1;
   }
 
+#ifdef DEMO
+  // The 1998 demo has the interface of then: a plain dark grey bitmap
+  // stands in for the ones it lacks.
+  for (i = 0; i < NEWUIBMP_NUM; i++) {
+    if (NewUI_bitmap_list[i].bmp == 0 || NewUI_bitmap_list[i].bmp == -1) {
+      int h = bm_AllocBitmap(32, 32, 0);
+      if (h > 0) {
+        uint16_t *px = bm_data(h, 0);
+        for (int k = 0; k < 32 * 32; k++)
+          px[k] = OPAQUE_FLAG | (6 << 10) | (6 << 5) | 8;
+      }
+      mprintf(0, "NewUI: bitmap #%d is not in the demo: %d stands in\n", i, h);
+      NewUI_bitmap_list[i].bmp = h;
+    }
+  }
+#endif
   for (i = 0; i < NEWUIBMP_NUM; i++) {
     if (NewUI_bitmap_list[i].bmp == 0 || NewUI_bitmap_list[i].bmp == -1)
       Error("Unable to load new user interface bitmap #%d.\n", i);

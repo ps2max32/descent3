@@ -71,7 +71,7 @@
 #define MAX_MONO_LENGTH 256
 #endif
 
-#if (!defined(RELEASE)) && defined(LOGGER)
+#if (!defined(RELEASE) || defined(__PS2__)) && defined(LOGGER) // PS2: the log on the console
 // Prints a formatted string to the debug window
 #define mprintf(...) Debug_ConsolePrintf(__VA_ARGS__)
 // Prints a formatted string on window n at row, col.

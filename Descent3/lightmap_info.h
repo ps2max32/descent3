@@ -71,7 +71,11 @@ extern lightmap_info *LightmapInfo;
 extern int Num_of_lightmap_info;
 extern int Num_lightmap_infos_read;
 
+#ifdef __PS2__ // 40 bytes each (2.5 MiB for 65534): one a lit face (PiccuStation 32700)
+#define MAX_LIGHTMAP_INFOS (32768)
+#else
 #define MAX_LIGHTMAP_INFOS (65534)
+#endif
 
 // Sets all the lightmaps to unused
 void InitLightmapInfo(int nummaps = 0);

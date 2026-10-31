@@ -26,7 +26,9 @@
 #define HGLOBAL void *
 
 void Sleep(int millis);
+#ifndef __PS2__ // picolibc has it
 char *strupr(char *string);
+#endif
 
 #define _stat stat
 

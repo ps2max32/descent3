@@ -1246,6 +1246,17 @@ int mng_LoadNetPages(int show_progress) {
     cfseek(infile, 0, SEEK_SET);
   }
   start_time = timer_GetTime();
+  {
+    // A table of the 1998 demo has no page lengths (each page is tagged
+    // fields): what would be the first page's length is larger than the file.
+    int size = cfilelength(infile);
+    cf_ReadByte(infile);
+    int first_len = cf_ReadInt(infile);
+    cfseek(infile, 0, SEEK_SET);
+    Old_table_method = first_len < 0 || first_len > size;
+    if (Old_table_method)
+      mprintf(0, "Table file without page lengths (old format)\n");
+  }
   while (!cfeof(infile)) {
     // Read in a pagetype.  If its a page we recognize, load it
     //		mprintf(0,".");

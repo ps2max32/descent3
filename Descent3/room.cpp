@@ -470,8 +470,53 @@ uint8_t *Room_mem_buf = NULL; // pointer to the rooms block of memory
 uint8_t *Room_mem_ptr = NULL; // pointer to free memory in the rooms block
 int Room_mem_size;          // How big our chunk is
 
+#ifdef __PS2__
+// The rooms' small blocks (the faces': 60000 for PiccuStation) from chunks of
+// 16 KiB, without the heap's own record each; the chunks go at the next level
+// (RoomMemInit) or RoomMemClose. Each chunk: the one before, then the blocks.
+#define ROOM_CHUNK (16 * 1024)
+static uint8_t *Room_chunk;
+static int Room_chunk_used;
+
+static void RoomChunksFree() {
+  while (Room_chunk) {
+    uint8_t *prev = *(uint8_t **)Room_chunk;
+    mem_free(Room_chunk);
+    Room_chunk = prev;
+  }
+  Room_chunk_used = 0;
+}
+
+static bool InRoomChunk(void *p) {
+  for (uint8_t *c = Room_chunk; c; c = *(uint8_t **)c)
+    if ((uint8_t *)p >= c && (uint8_t *)p < c + ROOM_CHUNK)
+      return true;
+  return false;
+}
+
+static void *RoomChunkAlloc(int size) {
+  size = (size + 3) & ~3;
+  if (size > 4096)
+    return mem_malloc(size);
+  if (!Room_chunk || Room_chunk_used + size > ROOM_CHUNK) {
+    uint8_t *c = (uint8_t *)mem_malloc(ROOM_CHUNK);
+    if (!c)
+      return mem_malloc(size);
+    *(uint8_t **)c = Room_chunk;
+    Room_chunk = c;
+    Room_chunk_used = 8;
+  }
+  void *p = Room_chunk + Room_chunk_used;
+  Room_chunk_used += size;
+  return p;
+}
+#endif
+
 // Closes down the room memory system.
 void RoomMemClose() {
+#ifdef __PS2__
+  RoomChunksFree();
+#endif
   if (Room_mem_buf)
     mem_free(Room_mem_buf);
 
@@ -485,12 +530,21 @@ void RoomMemInit(int nverts, int nfaces, int nfaceverts, int nportals) {
   return; // This system is disabled in the editor
 #endif
 
+#ifdef __PS2__
+  // no block of all the level's rooms (5 MiB for PiccuStation), which the heap
+  // of 32 MiB, fragmented by then, may not have: small chunks (RoomMemAlloc)
+  RoomChunksFree(); // the last level's (its rooms are freed by now)
+  return;
+#endif
   if (nverts == 0) // We don't know how much mem the room will use, so do the old way
     return;
 
   int size = (nfaces * (sizeof(*Rooms[0].faces))) + (nverts * sizeof(*Rooms[0].verts)) +
              (nportals * sizeof(*Rooms[0].portals)) +
              (nfaceverts * (sizeof(*Rooms[0].faces[0].face_verts) + sizeof(*Rooms[0].faces[0].face_uvls)));
+#ifdef __PS2__
+  size += nfaces * 2 * 4 + MAX_ROOMS * 4 * 4; // the blocks are aligned (RoomMemAlloc)
+#endif
 
   if (Room_mem_buf)
     mem_free(Room_mem_buf);
@@ -503,7 +557,13 @@ void RoomMemInit(int nverts, int nfaces, int nfaceverts, int nportals) {
 
 // Allocates memory for a room or face
 void *RoomMemAlloc(int size) {
+#ifdef __PS2__
+  return RoomChunkAlloc(size);
+#endif
   if (Room_mem_buf) {
+#ifdef __PS2__
+    size = (size + 3) & ~3; // 4-byte aligned: the R5900 traps on unaligned lw/sw
+#endif
     void *p = Room_mem_ptr;
     Room_mem_ptr += size;
     ASSERT(Room_mem_ptr <= (Room_mem_buf + Room_mem_size));
@@ -517,6 +577,11 @@ void *RoomMemAlloc(int size) {
 void RoomMemFree(void *buf) {
   if (!buf)
     return;
+#ifdef __PS2__
+  if (!InRoomChunk(buf)) // a large one, or one when no chunk could be had
+    mem_free(buf);
+  return;
+#endif
 
   if (Room_mem_buf) {
     ASSERT(((buf) >= Room_mem_buf) && ((buf) < (Room_mem_buf + Room_mem_size)));

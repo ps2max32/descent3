@@ -290,7 +290,7 @@ void mng_LoadNetMegacellPage(CFILE *infile) {
   mngs_megacell_page megacellpage;
   memset(&megacellpage, 0, sizeof(mngs_megacell_page));
 
-  if (mng_ReadNewMegacellPage(infile, &megacellpage)) {
+  if (mng_ReadMegacellPage(infile, &megacellpage)) {
     int ret = mng_SetAndLoadMegacell(&megacellpage);
     ASSERT(ret >= 0);
   } else
@@ -302,7 +302,7 @@ void mng_LoadLocalMegacellPage(CFILE *infile) {
   mngs_megacell_page megacellpage;
   int ok = 0;
   memset(&megacellpage, 0, sizeof(mngs_megacell_page));
-  if (mng_ReadNewMegacellPage(infile, &megacellpage)) {
+  if (mng_ReadMegacellPage(infile, &megacellpage)) {
     // Check to see if this is a local copy that is supposed
     // to go over a network copy (supersede the net copy)
     int i = FindMegacellName(megacellpage.megacell_struct.name);

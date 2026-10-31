@@ -18,6 +18,7 @@
 #define AUDIO
 
 #include <chrono>
+#include <unistd.h>
 #include <cstring>
 #include <deque>
 #include <memory>
@@ -103,7 +104,11 @@ unsigned long int timer_getmicroseconds() {
 }
 
 void timer_sleepmicroseconds(unsigned long int usec) {
+#ifdef __PS2__ // no threads in libc++ here: unistd.h usleep
+  usleep(usec);
+#else
   std::this_thread::sleep_for(std::chrono::microseconds(usec));
+#endif
 }
 
 static int create_timer_handler(unsigned char major, unsigned char minor, unsigned char *data, int len, void *context) {

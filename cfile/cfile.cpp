@@ -81,7 +81,11 @@ void ThrowCFileError(int type, CFILE *file, const char *msg) {
   cfe.read_write = type;
   cfe.msg = msg;
   cfe.file = file;
+#ifdef __PS2__ // built without exceptions
+  Error("CFILE %s error: %s", type == CFE_READING ? "read" : "write", msg);
+#else
   throw &cfe;
+#endif
 }
 
 static void cf_Close();

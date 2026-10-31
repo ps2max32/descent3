@@ -283,27 +283,27 @@ inline void MultiAddSbyte(int8_t element, uint8_t *data, int *count) {
 }
 
 inline void MultiAddShort(int16_t element, uint8_t *data, int *count) {
-  *(int16_t *)(data + *count) = INTEL_SHORT(element);
+  { int16_t v_ = INTEL_SHORT(element); memcpy(data + *count, &v_, sizeof v_); } // unaligned: no sh/sw
   *count += sizeof(int16_t);
 }
 
 inline void MultiAddUshort(uint16_t element, uint8_t *data, int *count) {
-  *(uint16_t *)(data + *count) = INTEL_SHORT(element);
+  { uint16_t v_ = INTEL_SHORT(element); memcpy(data + *count, &v_, sizeof v_); } // unaligned: no sh/sw
   *count += sizeof(uint16_t);
 }
 
 inline void MultiAddInt(int element, uint8_t *data, int *count) {
-  *(int *)(data + *count) = INTEL_INT(element);
+  { int v_ = INTEL_INT(element); memcpy(data + *count, &v_, sizeof v_); } // unaligned: no sh/sw
   *count += sizeof(int);
 }
 
 inline void MultiAddUint(uint32_t element, uint8_t *data, int *count) {
-  *(uint32_t *)(data + *count) = INTEL_INT(element);
+  { uint32_t v_ = INTEL_INT(element); memcpy(data + *count, &v_, sizeof v_); } // unaligned: no sh/sw
   *count += sizeof(uint32_t);
 }
 
 inline void MultiAddFloat(float element, uint8_t *data, int *count) {
-  *(float *)(data + *count) = INTEL_FLOAT(element);
+  { float v_ = INTEL_FLOAT(element); memcpy(data + *count, &v_, sizeof v_); } // unaligned: no sh/sw
   *count += sizeof(float);
 }
 
@@ -335,31 +335,36 @@ inline int8_t MultiGetSbyte(uint8_t *data, int *count) {
 }
 
 inline int16_t MultiGetShort(uint8_t *data, int *count) {
-  int16_t element = (*(int16_t *)(data + *count));
+  int16_t element;
+  memcpy(&element, data + *count, sizeof element); // unaligned: no lh/lw
   *count += sizeof(int16_t);
   return INTEL_SHORT(element);
 }
 
 inline uint16_t MultiGetUshort(uint8_t *data, int *count) {
-  uint16_t element = (*(uint16_t *)(data + *count));
+  uint16_t element;
+  memcpy(&element, data + *count, sizeof element); // unaligned: no lh/lw
   *count += sizeof(int16_t);
   return INTEL_SHORT(element);
 }
 
 inline int MultiGetInt(uint8_t *data, int *count) {
-  int element = (*(int *)(data + *count));
+  int element;
+  memcpy(&element, data + *count, sizeof element); // unaligned: no lh/lw
   *count += sizeof(int);
   return INTEL_INT(element);
 }
 
 inline uint32_t MultiGetUint(uint8_t *data, int *count) {
-  uint32_t element = (*(uint32_t *)(data + *count));
+  uint32_t element;
+  memcpy(&element, data + *count, sizeof element); // unaligned: no lh/lw
   *count += sizeof(int);
   return INTEL_INT(element);
 }
 
 inline float MultiGetFloat(uint8_t *data, int *count) {
-  float element = (*(float *)(data + *count));
+  float element;
+  memcpy(&element, data + *count, sizeof element); // unaligned: no lh/lw
   *count += sizeof(float);
   return INTEL_FLOAT(element);
 }

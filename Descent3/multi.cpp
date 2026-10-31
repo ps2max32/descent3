@@ -7882,7 +7882,11 @@ void SendDataChunk(int playernum) {
 
   try {
     cf_ReadBytes(readbuf, dataread, NetPlayers[playernum].file_xfer_cfile);
+#ifdef __PS2__ // built without exceptions: never runs
+  } else if (cfile_error *cfe = nullptr) {
+#else
   } catch (cfile_error *cfe) {
+#endif
     int t = cfe->read_write; // this is is here to fix compile warning
     // Woops, can't read the file, better error out!
     MultiCancelFile(playernum, NetPlayers[playernum].file_xfer_id, NetPlayers[playernum].file_xfer_who);

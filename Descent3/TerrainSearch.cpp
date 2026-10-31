@@ -388,6 +388,9 @@ void Terrain_start_frame(vector *eye, matrix *view_orient) {
   if (TS_FrameCount == 0) {
     TS_FrameCount = 1;
   }
+#ifdef __PS2__
+  Terrain_points_used = 0;
+#endif
 
   memset(Terrain_y_flags, 0, 256);
   memset(LOD_sort_num, 0, MAX_TERRAIN_LOD * sizeof(uint16_t));
@@ -405,6 +408,9 @@ void SortLodLevels(int count) {
 }
 // returns number of cells in visible terrain
 int GetVisibleTerrain(vector *eye, matrix *view_orient) {
+#ifdef __PS2__
+  PS2PointBuffers();
+#endif
   int cellcount = 0;
   int i, t, count;
 
@@ -429,6 +435,9 @@ int GetVisibleTerrain(vector *eye, matrix *view_orient) {
 
   if (TS_FrameCount == 0)
     TS_FrameCount = 1;
+#ifdef __PS2__
+  Terrain_points_used = 0;
+#endif
 
   return cellcount;
 }
@@ -648,7 +657,12 @@ int SearchQuadTree(int x1, int y1, int x2, int y2, int dir, int *ccount) {
         first = 0;
       }
 
+#ifdef __PS2__ // scratch (the terrain's points are kept for the cells drawn only)
+      static g3Point search_points[4];
+      pnt = &search_points[i];
+#else
       pnt = &World_point_buffer[n[i]];
+#endif
 
       // Do min height for region
       GetPreRotatedPointFast(&pnt->p3_vec, x[i], z[i], ymin_int[0]);

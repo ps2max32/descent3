@@ -354,6 +354,17 @@ void RemapStaticIDs() {
 
     int cur_index = FindObjectIDName(IGNORE_TABLE(Static_object_names[i]));
 
+#ifdef DEMO
+    // The 1998 demo has no red guidebot: a copy of the guidebot stands in.
+    bool stand_in = false;
+    if (cur_index == -1 && i == GENOBJ_GUIDEBOTRED && Object_info[GENOBJ_GUIDEBOT].type != OBJ_NONE) {
+      cur_index = GENOBJ_GUIDEBOT;
+      stand_in = true;
+    }
+#else
+    const bool stand_in = false;
+#endif
+
     if (cur_index == -1) {
       // The object we are trying to find is not loaded or doesn't exist
       Error("Cannot find object <%s>", Static_object_names[i]);
@@ -381,6 +392,8 @@ void RemapStaticIDs() {
 
     // Copy static ID into new slot
     Object_info[i] = Object_info[cur_index];
+    if (stand_in)
+      continue;
 
     // Free up the old slot
     Object_info[cur_index].type = OBJ_NONE;

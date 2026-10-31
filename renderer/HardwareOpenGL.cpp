@@ -125,6 +125,26 @@ uint8_t *OpenGL_lightmap_states = NULL;
 uint32_t *opengl_Upload_data = NULL;
 uint32_t *opengl_Translate_table = NULL;
 uint32_t *opengl_4444_translate_table = NULL;
+#ifdef __PS2__
+// the texels converted as they go, not by two 256 KiB tables: 1555 with the
+// game's gamma (no gamma ramp on the GS; a 5-bit table), 4444
+static uint8_t Ps2_gamma5[32];
+static inline uint32_t ps2_xlate1555(uint16_t p) {
+  if (!(p & OPAQUE_FLAG))
+    return 0;
+  return 0xff000000u | (uint32_t)Ps2_gamma5[p & 31] << 16 | (uint32_t)Ps2_gamma5[(p >> 5) & 31] << 8 |
+         Ps2_gamma5[(p >> 10) & 31];
+}
+static inline uint32_t ps2_xlate4444(uint16_t p) {
+  return (uint32_t)((p >> 12) & 15) * 17 << 24 | (uint32_t)(p & 15) * 17 << 16 |
+         (uint32_t)((p >> 4) & 15) * 17 << 8 | (uint32_t)((p >> 8) & 15) * 17;
+}
+#define XLATE_1555(p) ps2_xlate1555(p)
+#define XLATE_4444(p) ps2_xlate4444(p)
+#else
+#define XLATE_1555(p) opengl_Translate_table[p]
+#define XLATE_4444(p) opengl_4444_translate_table[p]
+#endif
 
 uint16_t *opengl_packed_Upload_data = NULL;
 uint16_t *opengl_packed_Translate_table = NULL;
@@ -503,6 +523,7 @@ int opengl_Setup(oeApplication *app, int *width, int *height) {
   dglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   SDL_GL_SwapWindow(GSDLWindow);
 
+#ifndef __PS2__ // no framebuffer objects: the GS draws into the shown picture
   bool fbo_available = true;
   if (!SDL_GL_ExtensionSupported("GL_EXT_framebuffer_object")) {
     mprintf(0, "OpenGL: GL_EXT_framebuffer_object extension is not available");
@@ -590,6 +611,8 @@ int opengl_Setup(oeApplication *app, int *width, int *height) {
       GSDLWindow = NULL;
       return 0;
   }
+
+#endif
 
   if (!FindArg("-nomousegrab")) {
     ddio_mouseGrabbed = true;
@@ -733,7 +756,18 @@ int opengl_Init(oeApplication *app, renderer_preferred_state *pref_state) {
       opengl_packed_4444_translate_table[i] = INTEL_INT(pix);
     }
   } else {
+#ifdef __PS2__ // the game's bitmaps are 256 x 256 at most: 256 KiB, not 16 MiB
+    opengl_Upload_data = (uint32_t *)mem_malloc(256 * 256 * 4);
+#else
     opengl_Upload_data = (uint32_t *)mem_malloc(2048 * 2048 * 4);
+#endif
+#ifdef __PS2__
+    {
+      float inv_gamma = 1.0f / (Render_preferred_state.gamma > 0.1f ? Render_preferred_state.gamma : 1.5f);
+      for (i = 0; i < 32; i++)
+        Ps2_gamma5[i] = (uint8_t)(255.0f * powf(i / 31.0f, inv_gamma) + 0.5f);
+    }
+#else
     opengl_Translate_table = (uint32_t *)mem_malloc(65536 * 4);
     opengl_4444_translate_table = (uint32_t *)mem_malloc(65536 * 4);
 
@@ -764,6 +798,14 @@ int opengl_Init(oeApplication *app, renderer_preferred_state *pref_state) {
       float fr = (float)r / 31.0f;
       float fg = (float)g / 31.0f;
       float fb = (float)b / 31.0f;
+#ifdef __PS2__
+      // no gamma ramp on the GS: the game's gamma in the texels (textures
+      // and lightmaps)
+      static float inv_gamma = 1.0f / (Render_preferred_state.gamma > 0.1f ? Render_preferred_state.gamma : 1.5f);
+      fr = powf(fr, inv_gamma);
+      fg = powf(fg, inv_gamma);
+      fb = powf(fb, inv_gamma);
+#endif
 
       r = 255 * fr;
       g = 255 * fg;
@@ -797,6 +839,7 @@ int opengl_Init(oeApplication *app, renderer_preferred_state *pref_state) {
 
       opengl_4444_translate_table[i] = INTEL_INT(pix);
     }
+#endif
   }
 
   opengl_SetDefaults();
@@ -1005,7 +1048,7 @@ void opengl_TranslateBitmapToOpenGL(int texnum, int bm_handle, int map_type, int
       for (int i = 0; i < h; i++, left_data += size, bm_left += w) {
         uint32_t *dest_data = left_data;
         for (int t = 0; t < w; t++) {
-          *dest_data++ = opengl_Translate_table[bm_ptr[bm_left + t]];
+          *dest_data++ = XLATE_1555(bm_ptr[bm_left + t]);
         }
       }
       if (size > 0) {
@@ -1023,27 +1066,36 @@ void opengl_TranslateBitmapToOpenGL(int texnum, int bm_handle, int map_type, int
       } else {
         limit = 1;
       }
+#ifdef __PS2__
+      limit = 1; // maxsdk_gl makes the mipmap levels from level 0
+#endif
 
       for (int m = 0; m < limit; m++) {
         bm_ptr = bm_data(bm_handle, m);
         w = bm_w(bm_handle, m);
         h = bm_h(bm_handle, m);
+#ifdef __PS2__
+        if (w * h > 256 * 256) {
+          mprintf(0, "OpenGL: bitmap %d is %d x %d, larger than the upload buffer\n", bm_handle, w, h);
+          break;
+        }
+#endif
 
         if (bm_format(bm_handle) == BITMAP_FORMAT_4444) {
           // Do 4444
 
           if (bm_mipped(bm_handle)) {
             for (i = 0; i < w * h; i++)
-              opengl_Upload_data[i] = INTEL_INT((255 << 24)) | opengl_4444_translate_table[bm_ptr[i]];
+              opengl_Upload_data[i] = INTEL_INT((255 << 24)) | XLATE_4444(bm_ptr[i]);
           } else {
             for (i = 0; i < w * h; i++)
-              opengl_Upload_data[i] = opengl_4444_translate_table[bm_ptr[i]];
+              opengl_Upload_data[i] = XLATE_4444(bm_ptr[i]);
           }
         } else {
           // Do 1555
 
           for (i = 0; i < w * h; i++)
-            opengl_Upload_data[i] = opengl_Translate_table[bm_ptr[i]];
+            opengl_Upload_data[i] = XLATE_1555(bm_ptr[i]);
         }
 
         // rcg06262000 my if wrapper.
@@ -1063,6 +1115,12 @@ void opengl_TranslateBitmapToOpenGL(int texnum, int bm_handle, int map_type, int
   if (map_type == MAP_TYPE_LIGHTMAP) {
     GameLightmaps[bm_handle].flags &= ~LF_LIMITS;
   }
+#ifdef __PS2__
+  else {
+    extern void bm_PS2Evict(int handle);
+    bm_PS2Evict(bm_handle); // maxsdk_gl has the texels now
+  }
+#endif
 
   CHECK_ERROR(6)
   OpenGL_uploads++;
@@ -1490,12 +1548,56 @@ void rend_Close(void) {
   Renderer_initted = 0;
 }
 
+#ifdef __PS2__
+// A bitmap or lightmap is freed: its texture goes too (maxsdk_gl keeps a
+// copy of every texture in EE memory); made again if the handle is used.
+void rend_PS2FreeTexture(int handle, int lightmap) {
+  uint16_t *remap = lightmap ? OpenGL_lightmap_remap : OpenGL_bitmap_remap;
+  if (!remap || remap[handle] == 65535)
+    return;
+  GLuint t = remap[handle];
+  dglDeleteTextures(1, &t);
+  for (int i = 0; i < 2; i++)
+    if (OpenGL_last_bound[i] == (int)t)
+      OpenGL_last_bound[i] = 9999999;
+  if (lightmap)
+    GameLightmaps[handle].flags |= LF_BRAND_NEW;
+  else
+    GameBitmaps[handle].flags |= BF_BRAND_NEW;
+}
+#endif
+
+#ifdef __PS2__
+// A texture made now (and the game's copy taken out: bm_PS2Evict)
+void rend_PS2Preload(int bm_handle) {
+  if (bm_handle > 0 && GameBitmaps[bm_handle].used && OpenGL_bitmap_remap)
+    opengl_MakeBitmapCurrent(bm_handle, MAP_TYPE_BITMAP, 0);
+}
+#endif
+
 void gpu_BindTexture(int handle, int map_type, int slot) {
   opengl_MakeBitmapCurrent(handle, map_type, slot);
   opengl_MakeWrapTypeCurrent(handle, map_type, slot);
   opengl_MakeFilterTypeCurrent(handle, map_type, slot);
 }
 
+#ifdef __PS2__
+// ps2/ps2_gl.cpp: maxsdk_gl's arrays, the lightmap as a second pass
+void ps2_render_polygon(PosColorUVVertex *vData, uint32_t nv);
+void ps2_render_polygon_uv2(PosColorUV2Vertex *vData, uint32_t nv);
+
+void gpu_RenderPolygon(PosColorUVVertex *vData, uint32_t nv) {
+  ps2_render_polygon(vData, nv);
+  OpenGL_polys_drawn++;
+  OpenGL_verts_processed += nv;
+}
+
+void gpu_RenderPolygonUV2(PosColorUV2Vertex *vData, uint32_t nv) {
+  ps2_render_polygon_uv2(vData, nv);
+  OpenGL_polys_drawn++;
+  OpenGL_verts_processed += nv;
+}
+#else
 void gpu_RenderPolygon(PosColorUVVertex *vData, uint32_t nv) {
   dglVertexPointer(3, GL_FLOAT, sizeof(*vData), &vData->pos);
   dglColorPointer(4, GL_FLOAT, sizeof(*vData), &vData->color);
@@ -1538,6 +1640,7 @@ void gpu_RenderPolygonUV2(PosColorUV2Vertex *vData, uint32_t nv) {
 
   CHECK_ERROR(10)
 }
+#endif
 
 void rend_SetFlatColor(ddgr_color color) { gpu_state.cur_color = color; }
 

@@ -266,7 +266,7 @@ void mng_LoadNetGamefilePage(CFILE *infile, bool overlay) {
   mngs_gamefile_page gamefilepage;
   memset(&gamefilepage, 0, sizeof(mngs_gamefile_page));
 
-  if (mng_ReadNewGamefilePage(infile, &gamefilepage)) {
+  if (mng_ReadGamefilePage(infile, &gamefilepage)) {
     int n = FindGamefileName(gamefilepage.gamefile_struct.name);
     if (n != -1) {
       if (overlay) {
@@ -290,7 +290,7 @@ void mng_LoadLocalGamefilePage(CFILE *infile) {
   int ok = 0;
   memset(&gamefilepage, 0, sizeof(mngs_gamefile_page));
 
-  if (mng_ReadNewGamefilePage(infile, &gamefilepage)) {
+  if (mng_ReadGamefilePage(infile, &gamefilepage)) {
     // Check to see if this is a local copy that is supposed
     // to go over a network copy (supersede the net copy)
 

@@ -739,6 +739,18 @@ UIBitmapItem *newuiResources::Load(const char *filename) {
     i = free_slot;
 
     bm = bm_AllocLoadFileBitmap(IGNORE_TABLE(filename), 0);
+#ifdef DEMO
+    // The 1998 demo has the interface of then: a grey square with a light
+    // edge stands in for the bitmaps it lacks.
+    if (bm < 0 && (bm = bm_AllocBitmap(64, 64, 0)) >= 0) {
+      uint16_t *px = bm_data(bm, 0);
+      for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++)
+          px[y * 64 + x] = (x < 2 || y < 2 || x > 61 || y > 61) ? OPAQUE_FLAG | (20 << 10) | (20 << 5) | 24
+                                                                : OPAQUE_FLAG | (6 << 10) | (6 << 5) | 8;
+      mprintf(0, "NewUI: %s is not in the demo: a grey square stands in\n", filename);
+    }
+#endif
     if (bm < 0) {
       Error("NewUI: Failed to load bitmap %s", filename);
     }

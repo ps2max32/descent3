@@ -410,7 +410,11 @@ struct network_packet_buffer {
   uint8_t data[MAX_PACKET_SIZE];
 };
 
+#ifdef __PS2__ // no network
+#define MAX_PACKET_BUFFERS 4
+#else
 #define MAX_PACKET_BUFFERS 96
+#endif
 
 static network_packet_buffer Packet_buffers[MAX_PACKET_BUFFERS]; // buffer to hold packets sent to us
 static int16_t Packet_free_list[MAX_PACKET_BUFFERS];               // contains id's of free packet buffers

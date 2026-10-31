@@ -36,7 +36,8 @@
  * B.A. Macintosh code merge
  *
  * 25    4/14/99 1:07a Jeff
- * fixed case mismatched #includes
+ * fixed case mismatched #include <cstring>
+#includes
  *
  * 24    2/16/99 12:42p Kevin
  * Improvements to the paging data progress indicator
@@ -174,7 +175,7 @@ inline int tga_read_int() {
     return 0;
   }
 
-  i = *(int *)(Tga_file_data + Fake_pos);
+  memcpy(&i, Tga_file_data + Fake_pos, 4); // unaligned: the R5900 traps on lw
   Fake_pos += 4;
 
   return INTEL_INT(i);
@@ -188,7 +189,7 @@ inline int16_t tga_read_short() {
     return 0;
   }
 
-  i = *(int16_t *)(Tga_file_data + Fake_pos);
+  memcpy(&i, Tga_file_data + Fake_pos, 2); // unaligned: the R5900 traps on lh
   Fake_pos += 2;
 
   return INTEL_SHORT(i);

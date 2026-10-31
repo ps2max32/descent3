@@ -54,19 +54,71 @@ void lm_ShutdownLightmaps(void) {
       lm_FreeLightmap(i);
   }
 }
+#ifdef __PS2__
+// A level's lightmaps are tens of thousands of small blocks (PiccuStation:
+// 32700): those of up to 1 KiB come from chunks of 64 KiB, without the
+// heap's own record each; the chunks go when the last of them is freed.
+#define LM_CHUNK (64 * 1024)
+static uint8_t *Lm_chunk; // the newest; its first word: the one before
+static int Lm_chunk_used, Lm_pooled_count;
+static uint8_t Lm_pooled[MAX_LIGHTMAPS / 8];
+
+static uint16_t *lm_pool_alloc(int n, int size) {
+  size = (size + 7) & ~7;
+  if (size > 1024)
+    return (uint16_t *)mem_malloc(size);
+  if (!Lm_chunk || Lm_chunk_used + size > LM_CHUNK) {
+    uint8_t *c = (uint8_t *)mem_malloc(LM_CHUNK);
+    if (!c)
+      return NULL;
+    *(uint8_t **)c = Lm_chunk;
+    Lm_chunk = c, Lm_chunk_used = 16;
+  }
+  uint16_t *p = (uint16_t *)(Lm_chunk + Lm_chunk_used);
+  Lm_chunk_used += size;
+  Lm_pooled[n >> 3] |= (uint8_t)(1 << (n & 7));
+  Lm_pooled_count++;
+  return p;
+}
+
+static void lm_pool_free(int n, uint16_t *p) {
+  if (!(Lm_pooled[n >> 3] & (1 << (n & 7)))) {
+    mem_free(p);
+    return;
+  }
+  Lm_pooled[n >> 3] &= (uint8_t)~(1 << (n & 7));
+  if (--Lm_pooled_count == 0)
+    while (Lm_chunk) {
+      uint8_t *prev = *(uint8_t **)Lm_chunk;
+      mem_free(Lm_chunk);
+      Lm_chunk = prev;
+    }
+}
+#endif
+
 // Allocs a lightmap of w x h size
 // Returns lightmap handle if successful, -1 if otherwise
 int lm_AllocLightmap(int w, int h) {
   int n; //,i;
   if (Num_of_lightmaps == MAX_LIGHTMAPS)
     Int3(); // Ran out of lightmaps!
+#ifdef __PS2__
+  if (Num_of_lightmaps >= MAX_LIGHTMAPS) {
+    mprintf(0, "Out of lightmaps (%d: MAX_LIGHTMAPS)\n", MAX_LIGHTMAPS);
+    return BAD_LM_INDEX;
+  }
+#endif
 
   n = Free_lightmap_list[Num_of_lightmaps++];
   ASSERT(GameLightmaps[n].used == 0);
   // If no go on the malloc, bail out with -1
 
   memset(&GameLightmaps[n], 0, sizeof(bms_lightmap));
+#ifdef __PS2__
+  GameLightmaps[n].data = lm_pool_alloc(n, w * h * 2);
+#else
   GameLightmaps[n].data = (uint16_t *)mem_malloc((w * h * 2));
+#endif
   if (!GameLightmaps[n].data) {
     mprintf(0, "NOT ENOUGHT MEMORY FOR LIGHTMAP!\n");
     Int3();
@@ -102,8 +154,16 @@ void lm_FreeLightmap(int handle) {
     return;
   GameLightmaps[handle].used--;
   if (GameLightmaps[handle].used == 0) {
+#ifdef __PS2__
+    extern void rend_PS2FreeTexture(int handle, int lightmap);
+    rend_PS2FreeTexture(handle, 1);
+#endif
     if (GameLightmaps[handle].data != NULL)
+#ifdef __PS2__
+      lm_pool_free(handle, GameLightmaps[handle].data);
+#else
       mem_free(GameLightmaps[handle].data);
+#endif
     Lightmap_mem_used -= (GameLightmaps[handle].width * GameLightmaps[handle].height * 2);
 
     GameLightmaps[handle].data = NULL;

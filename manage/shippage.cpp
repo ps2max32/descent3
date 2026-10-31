@@ -1167,7 +1167,7 @@ void mng_LoadNetShipPage(CFILE *infile, bool overlay) {
   // end up with random values for initial velocity and the such...  :)
   memset(&shippage, 0, sizeof(mngs_ship_page));
 
-  if (mng_ReadNewShipPage(infile, &shippage)) {
+  if (mng_ReadShipPage(infile, &shippage)) {
     int n = FindShipName(shippage.ship_struct.name);
     if (n != -1) {
       if (overlay) {
@@ -1192,7 +1192,7 @@ void mng_LoadLocalShipPage(CFILE *infile) {
   // end up with random values for initial velocity and the such...  :)
   memset(&shippage, 0, sizeof(mngs_ship_page));
 
-  if (mng_ReadNewShipPage(infile, &shippage)) {
+  if (mng_ReadShipPage(infile, &shippage)) {
     // Check to see if this is a local copy that is supposed
     // to go over a network copy (supersede the net copy)
 

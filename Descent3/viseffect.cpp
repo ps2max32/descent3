@@ -488,7 +488,11 @@ void ShutdownVisEffects() {
 // Goes through our array and clears the slots out
 void InitVisEffects() {
   static uint16_t old_max_vis = 0;
+#ifdef __PS2__
+  max_vis_effects = 1500; // 32 MiB (350 KiB less than the PC's 5000)
+#else
   max_vis_effects = MAX_VIS_EFFECTS; // always peg to max on PC
+#endif
 
   if (old_max_vis == max_vis_effects)
     return;

@@ -520,7 +520,7 @@ void mng_LoadNetDoorPage(CFILE *infile, bool overlay) {
   mngs_door_page doorpage;
   memset(&doorpage, 0, sizeof(mngs_door_page));
 
-  if (mng_ReadNewDoorPage(infile, &doorpage)) {
+  if (mng_ReadDoorPage(infile, &doorpage)) {
     int n;
     n = FindDoorName(doorpage.door_struct.name);
     if (n != -1) {
@@ -545,7 +545,7 @@ void mng_LoadLocalDoorPage(CFILE *infile) {
   int ok = 0;
   memset(&doorpage, 0, sizeof(mngs_door_page));
 
-  if (mng_ReadNewDoorPage(infile, &doorpage)) {
+  if (mng_ReadDoorPage(infile, &doorpage)) {
     // Check to see if this is a local copy that is supposed
     // to go over a network copy (supersede the net copy)
 

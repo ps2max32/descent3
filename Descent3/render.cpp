@@ -91,6 +91,13 @@ int Flag_automap, Called_from_terrain;
 float Fog_zone_start = FLT_MAX, Fog_zone_end = FLT_MAX;
 int Must_render_terrain;
 int Global_buffer_index;
+#ifdef __PS2__ // World_point_buffer has the rooms' points only (terrain.h)
+#define ROOM_POINTS_CHECK(n)                                                                     \
+  if (Global_buffer_index + (n) > ROOM_POINTS)                                                   \
+  Error("Too many room points in a frame (%d: ROOM_POINTS)", Global_buffer_index + (n))
+#else
+#define ROOM_POINTS_CHECK(n)
+#endif
 int No_render_windows_hack = -1;
 #define WALL_PULSE_INCREMENT .01
 // Variables for various debugging features
@@ -580,6 +587,7 @@ void MarkFacesForRendering(int roomnum, clip_wnd *wnd) {
   // Rotate all the points in this room
   if (rp->wpb_index == -1) {
     rp->wpb_index = Global_buffer_index;
+    ROOM_POINTS_CHECK(rp->num_verts);
 
     // Katmai enhanced rotate only in a release build, because not
     // everyone has the intel compiler!
@@ -1079,6 +1087,9 @@ static int Room_z_sort_func(const int16_t *a, const int16_t *b) {
 // build a list of rooms to be rendered
 // fills in Render_list & N_render_rooms
 void BuildRoomList(int start_room_num) {
+#ifdef __PS2__
+  PS2PointBuffers();
+#endif
   clip_wnd wnd;
   room *rp = &Rooms[start_room_num];
   int i;
@@ -1109,6 +1120,7 @@ void BuildRoomList(int start_room_num) {
 
   // Get our points rotated, and update the global point list
   rp->wpb_index = Global_buffer_index;
+  ROOM_POINTS_CHECK(rp->num_verts);
 
   // Katmai enhanced rotate only in a release build, because not
   // everyone has the intel compiler!
@@ -2144,6 +2156,7 @@ void RenderRoomSorted(room *rp) {
   // Rotate all the points
   if (rp->wpb_index == -1) {
     rp->wpb_index = Global_buffer_index;
+    ROOM_POINTS_CHECK(rp->num_verts);
     // Katmai enhanced rotate only in a release build, because not
     // everyone has the intel compiler!
 #if (defined(RELEASE) && defined(KATMAI))
@@ -2244,6 +2257,7 @@ void RenderRoomUnsorted(room *rp) {
   // Rotate points in this room if need be
   if (rp->wpb_index == -1) {
     rp->wpb_index = Global_buffer_index;
+    ROOM_POINTS_CHECK(rp->num_verts);
 
 // Katmai enhanced rotate only in a release build, because not
 // everyone has the intel compiler!
@@ -2865,7 +2879,11 @@ void BuildMirroredRoomList() {
   BuildMirroredRoomListSub(Mirror_room, &new_wnd);
 }
 vector mirror_dest_vecs[MAX_VERTS_PER_ROOM];
+#ifdef __PS2__ // 680 KiB, made when a mirror is first drawn
+static g3Point *mirror_save_points;
+#else
 g3Point mirror_save_points[MAX_VERTS_PER_ROOM];
+#endif
 // Renders a mirror flipped about the mirrored plane
 void RenderMirroredRoom(room *rp) {
   int i;
@@ -2876,10 +2894,15 @@ void RenderMirroredRoom(room *rp) {
   bool restore_index = true;
   int save_index = Global_buffer_index;
 
+#ifdef __PS2__
+  if (!mirror_save_points)
+    mirror_save_points = (g3Point *)mem_malloc(MAX_VERTS_PER_ROOM * sizeof(g3Point));
+#endif
   // Save old rotated points
   if (rp->wpb_index == -1) {
     restore_index = false;
     rp->wpb_index = Global_buffer_index;
+    ROOM_POINTS_CHECK(rp->num_verts);
   } else {
     for (i = 0; i < rp->num_verts; i++)
       mirror_save_points[i] = World_point_buffer[rp->wpb_index + i];

@@ -1348,6 +1348,9 @@ void LoadLevelProgress(int step, float percent, const char *chunk) {
       p = Current_mission.levels[Current_mission.cur_level - 1].progress;
     }
 
+#ifdef __PS2__
+    p = NULL; // no picture (640 KiB while the level loads): the progress only
+#endif
     if (p) {
       if (LoadLargeBitmap(IGNORE_TABLE(p), &level_bmp)) {
         SetScreenMode(SM_MENU);

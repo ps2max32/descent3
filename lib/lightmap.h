@@ -21,7 +21,11 @@
 
 #include "pstypes.h"
 
+#ifdef __PS2__ // 20 bytes each in 32 MiB (PiccuStation has 32700)
+#define MAX_LIGHTMAPS (32768)
+#else
 #define MAX_LIGHTMAPS (65534)
+#endif
 #define BAD_LM_INDEX 65535
 
 // lightmap flags

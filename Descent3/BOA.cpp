@@ -2120,6 +2120,20 @@ static int face_sort_func2(const int16_t *a, const int16_t *b) {
 
 #define MAX_REGIONS_PER_ROOM 200
 
+// Appends face f to region list r of room rp
+#ifdef __PS2__
+// grown as it fills: a list of n entries has room for the power of two at or
+// above n (8 at least); the length travels with the list when lists swap
+static inline void BBF_ADD(room *rp, int r, int16_t f) {
+  int n = rp->num_bbf[r];
+  if (n == 0 || (n >= 8 && !(n & (n - 1))))
+    rp->bbf_list[r] = (int16_t *)mem_realloc(rp->bbf_list[r], (n < 8 ? 8 : 2 * n) * sizeof(int16_t));
+  rp->bbf_list[r][rp->num_bbf[r]++] = f;
+}
+#else
+#define BBF_ADD(rp, r, f) ((rp)->bbf_list[r][(rp)->num_bbf[r]++] = (f))
+#endif
+
 void ComputeAABB(bool f_full) {
   int i;
   int j;
@@ -2420,7 +2434,11 @@ void ComputeAABB(bool f_full) {
         rp->num_bbf_regions = 27 + num_structs_per_room[i] - 1;
         rp->bbf_list = (int16_t **)mem_malloc(MAX_REGIONS_PER_ROOM * sizeof(int16_t *));
         for (x = 0; x < MAX_REGIONS_PER_ROOM; x++) {
+#ifdef __PS2__ // made as faces go in (BBF_ADD): 200 of num_faces each in all rooms is MiBs
+          rp->bbf_list[x] = NULL;
+#else
           rp->bbf_list[x] = (int16_t *)mem_malloc(rp->num_faces * sizeof(int16_t));
+#endif
         }
         rp->num_bbf = (int16_t *)mem_malloc(MAX_REGIONS_PER_ROOM * sizeof(int16_t));
         rp->bbf_list_min_xyz = (vector *)mem_malloc(MAX_REGIONS_PER_ROOM * sizeof(vector));
@@ -2518,14 +2536,14 @@ void ComputeAABB(bool f_full) {
 
           if (f_part == false) {
             if (r_struct_list[i][count] == 0)
-              rp->bbf_list[0][rp->num_bbf[0]++] = count;
+              BBF_ADD(rp, 0, count);
             else {
               if (rp->num_bbf[27 + r_struct_list[i][count] - 1] == 0)
                 rp->bbf_list_sector[27 + r_struct_list[i][count] - 1] = sector;
               else
                 rp->bbf_list_sector[27 + r_struct_list[i][count] - 1] &= sector;
 
-              rp->bbf_list[27 + r_struct_list[i][count] - 1][rp->num_bbf[27 + r_struct_list[i][count] - 1]++] = count;
+              BBF_ADD(rp, 27 + r_struct_list[i][count] - 1, count);
             }
 
             nonpart++;
@@ -2625,14 +2643,14 @@ void ComputeAABB(bool f_full) {
             }
 
             if (r_struct_list[i][count] == 0)
-              rp->bbf_list[slot][rp->num_bbf[slot]++] = count;
+              BBF_ADD(rp, slot, count);
             else {
               if (rp->num_bbf[27 + r_struct_list[i][count] - 1] == 0)
                 rp->bbf_list_sector[27 + r_struct_list[i][count] - 1] = sector;
               else
                 rp->bbf_list_sector[27 + r_struct_list[i][count] - 1] &= sector;
 
-              rp->bbf_list[27 + r_struct_list[i][count] - 1][rp->num_bbf[27 + r_struct_list[i][count] - 1]++] = count;
+              BBF_ADD(rp, 27 + r_struct_list[i][count] - 1, count);
             }
 
             ASSERT(slot > 0 && slot < rp->num_bbf_regions);
@@ -2795,7 +2813,7 @@ void ComputeAABB(bool f_full) {
                 float val = ((float *)&split)[sp];
 
                 if (((float *)(&rp->faces[rp->bbf_list[j][count]].max_xyz))[sp] <= val) {
-                  rp->bbf_list[rp->num_bbf_regions][rp->num_bbf[rp->num_bbf_regions]++] = rp->bbf_list[j][count];
+                  BBF_ADD(rp, rp->num_bbf_regions, rp->bbf_list[j][count]);
 
                   int t;
                   for (t = count; t < rp->num_bbf[j] - 1; t++) {
@@ -2805,8 +2823,7 @@ void ComputeAABB(bool f_full) {
                   rp->num_bbf[j]--;
                   count--;
                 } else if (((float *)(&rp->faces[rp->bbf_list[j][count]].min_xyz))[sp] >= val) {
-                  rp->bbf_list[rp->num_bbf_regions + 1][rp->num_bbf[rp->num_bbf_regions + 1]++] =
-                      rp->bbf_list[j][count];
+                  BBF_ADD(rp, rp->num_bbf_regions + 1, rp->bbf_list[j][count]);
 
                   int t;
                   for (t = count; t < rp->num_bbf[j] - 1; t++) {

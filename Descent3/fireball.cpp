@@ -684,6 +684,24 @@ void InitFireballs() {
     if (!(stricmp(Fireballs[i].name, "NOIMAGE")))
       continue;
     int bm_handle = LoadTextureImage(IGNORE_TABLE(Fireballs[i].name), NULL, Fireballs[i].tex_size, 0);
+#ifdef DEMO
+    // The 1998 demo lacks some: an earlier one of the same kind (an
+    // animation or a bitmap) stands in.
+    if (bm_handle < 0) {
+      const char *ext = strrchr(Fireballs[i].name, '.');
+      for (int j = 0; j < i && bm_handle < 0; j++) {
+        const char *e = strrchr(Fireballs[j].name, '.');
+        if (Fireballs[j].bm_handle >= 0 && ext && e && !stricmp(ext, e) && stricmp(Fireballs[j].name, "NOIMAGE"))
+          bm_handle = Fireballs[j].bm_handle;
+      }
+      if (bm_handle < 0 && ext && !stricmp(ext, ".ogf")) {
+        bm_handle = bm_AllocBitmap(32, 32, 0); // blank
+        if (bm_handle >= 0)
+          memset(bm_data(bm_handle, 0), 0, 32 * 32 * 2);
+      }
+      mprintf(0, "Fireball %s is not in the demo: %d stands in\n", Fireballs[i].name, bm_handle);
+    }
+#endif
     if (bm_handle < 0) {
       Error("Couldn't load fireball %s in InitFireballs.", Fireballs[i].name);
       return;

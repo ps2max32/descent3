@@ -314,7 +314,8 @@ void mmInterface::Create() {
     Error("Unable to load main menu art oemmenu.ogf.");
   }
 #elif defined(DEMO)
-  if (!LoadLargeBitmap("demomenu.ogf", &m_art)) {
+  // the 1998 demo has mainmenu.ogf
+  if (!LoadLargeBitmap("demomenu.ogf", &m_art) && !LoadLargeBitmap("mainmenu.ogf", &m_art)) {
     Error("Unable to load main menu art demomenu.ogf.");
   }
 #else

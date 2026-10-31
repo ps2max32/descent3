@@ -438,6 +438,55 @@ bm_Node *bm_findNode(bm_T data) {
 }
 //	simply frees up a bitmap
 void bm_FreeBitmapMain(int handle);
+#ifdef __PS2__
+// Bitmaps loaded from a file whose texels are in maxsdk_gl only (its own
+// copy of each texture): taken out after the upload (bm_PS2Evict), paged in
+// from the file again by bm_data. Their size and flags stay.
+static uint8_t Bm_from_file[MAX_BITMAPS], Bm_evicted[MAX_BITMAPS];
+// the chunks of a large bitmap (bm_CreateChunkedBitmap): only drawn, taken out
+// after the upload too; if the game wants their texels again, they are black
+static uint8_t Bm_drop[MAX_BITMAPS];
+
+void bm_PS2FromFile(int handle) { Bm_from_file[handle] = 1; }
+
+void bm_PS2Drop(int handle) { Bm_drop[handle] = 1; }
+
+// Before a level loads: the bitmaps that can be paged in again from their
+// file (HUD, effects, the interface's) let go of their texels until they
+// are drawn again.
+void bm_PS2PageOut() {
+  int n = 0;
+  for (int i = 1; i < MAX_BITMAPS; i++) {
+    bms_bitmap *b = &GameBitmaps[i];
+    if (!Bm_from_file[i] || Bm_evicted[i] || !b->used || !b->data16 || (b->flags & BF_NOT_RESIDENT))
+      continue;
+    uint8_t flags = b->flags;
+    bm_FreeBitmapData(i);
+    b->flags = (flags & ~BF_WANTS_MIP) | BF_NOT_RESIDENT;
+    Bm_evicted[i] = 1;
+    n++;
+  }
+  mprintf(0, "PS2: %d bitmaps paged out\n", n);
+}
+bool bm_PS2InGL(int handle) { return handle > 0 && Bm_evicted[handle]; }
+
+void bm_PS2Evict(int handle) {
+  bms_bitmap *b = &GameBitmaps[handle];
+  if (!(Bm_from_file[handle] || Bm_drop[handle]) || Bm_evicted[handle] || !b->used || !b->data16 ||
+      (b->flags & (BF_NOT_RESIDENT | BF_CHANGED)))
+    return;
+  uint8_t flags = b->flags;
+  bm_FreeBitmapData(handle);
+  b->flags = (flags & ~(BF_WANTS_MIP)) | BF_NOT_RESIDENT;
+  Bm_evicted[handle] = 1;
+}
+
+// the size and flags of an evicted bitmap are still right: no paging in
+#define PS2_RESIDENT_FOR_INFO(h) (Bm_evicted[h])
+#else
+#define PS2_RESIDENT_FOR_INFO(h) 0
+#endif
+
 // Sets all the bitmaps to unused
 void bm_InitBitmaps() {
   int i, ret;
@@ -479,11 +528,46 @@ void bm_ShutdownBitmaps(void) {
   }
   bm_DeleteHashTable();
 }
+#ifdef __PS2__
+// A texture paged in only to be made smaller at once (PageInTexture in low
+// memory): its texels in this buffer, not in the heap (where 43 KiB in one
+// piece may be wanting late in a level's loading)
+static uint16_t Bm_scratch[(64 * 1024) / 2] __attribute__((aligned(64)));
+bool Bm_scratch_next;
+static bool bm_IsScratch(void *p) { return p == Bm_scratch; }
+// a bitmap left in the buffer (not made smaller after all): to the heap
+void bm_PS2Unscratch(int handle) {
+  bms_bitmap *b = &GameBitmaps[handle];
+  if (!b->data16 || !bm_IsScratch(b->data16))
+    return;
+  int size = b->width * b->height * 2;
+  if (b->flags & BF_MIPMAPPED)
+    size += size / 3;
+  size += 2;
+  uint16_t *p = (uint16_t *)mem_malloc(size);
+  if (!p)
+    Error("Out of memory for bitmap %s", b->name);
+  memcpy(p, b->data16, size);
+  b->data16 = p;
+}
+#endif
+
 int bm_AllocateMemoryForIndex(int n, int w, int h, int add_mem) {
   // If no go on the malloc, bail out with -1
 
   int size = (w * h * 2) + (add_mem) + 2;
+#ifdef PS2_MEMLOG
+  mprintf(0, "bm: %d %s %dx%d %d\n", n, GameBitmaps[n].name, w, h, size);
+#endif
+#ifdef __PS2__
+  if (Bm_scratch_next && size <= (int)sizeof Bm_scratch)
+    GameBitmaps[n].data16 = Bm_scratch;
+  else
+#endif
   GameBitmaps[n].data16 = (uint16_t *)mem_malloc(size);
+#ifdef __PS2__
+  Bm_scratch_next = false;
+#endif
   if (!GameBitmaps[n].data16) {
     Int3(); // Ran out of memory!
     return -1;
@@ -599,6 +683,10 @@ void bm_FreeBitmap(int handle) {
     return;
   GameBitmaps[handle].used--;
   if (GameBitmaps[handle].used == 0) {
+#ifdef __PS2__
+    extern void rend_PS2FreeTexture(int handle, int lightmap);
+    rend_PS2FreeTexture(handle, 0);
+#endif
     bm_FreeBitmapMain(handle);
   }
 }
@@ -611,6 +699,9 @@ void bm_FreeBitmapData(int handle) {
       if (GameBitmaps[handle].flags & BF_MIPMAPPED)
         Bitmap_memory_used -= (mem_used / 3);
     }
+#ifdef __PS2__
+    if (!bm_IsScratch(GameBitmaps[handle].data16))
+#endif
     mem_free(GameBitmaps[handle].data16);
   }
   GameBitmaps[handle].cache_slot = -1;
@@ -621,6 +712,9 @@ void bm_FreeBitmapData(int handle) {
 }
 //	simply frees up a bitmap
 void bm_FreeBitmapMain(int handle) {
+#ifdef __PS2__
+  Bm_from_file[handle] = Bm_evicted[handle] = Bm_drop[handle] = 0;
+#endif
   bm_deleteNode(&GameBitmaps[handle]);
   bm_FreeBitmapData(handle);
   GameBitmaps[handle].data16 = NULL;
@@ -854,6 +948,9 @@ int bm_AllocLoadFileBitmap(const char *fname, int mipped, int format) {
   }
 
   strcpy(GameBitmaps[n].name, name);
+#ifdef __PS2__
+  Bm_from_file[n] = !strcmp(name, filename); // paged in again by this name
+#endif
 
   // Insert into the hash table!
   bm_insertNode(&GameBitmaps[n]);
@@ -1114,7 +1211,7 @@ int bm_w(int handle, int miplevel) {
     Int3();
     return -1;
   }
-  if (GameBitmaps[handle].flags & BF_NOT_RESIDENT)
+  if ((GameBitmaps[handle].flags & BF_NOT_RESIDENT) && !PS2_RESIDENT_FOR_INFO(handle))
     if (!bm_MakeBitmapResident(handle))
       return 0;
   if (!(GameBitmaps[handle].flags & BF_MIPMAPPED))
@@ -1131,7 +1228,7 @@ int bm_h(int handle, int miplevel) {
     return -1;
   }
   // If this bitmap is not page in, do so!
-  if (GameBitmaps[handle].flags & BF_NOT_RESIDENT)
+  if ((GameBitmaps[handle].flags & BF_NOT_RESIDENT) && !PS2_RESIDENT_FOR_INFO(handle))
     if (!bm_MakeBitmapResident(handle))
       return 0;
   if (!(GameBitmaps[handle].flags & BF_MIPMAPPED))
@@ -1152,7 +1249,7 @@ int bm_miplevels(int handle) {
     return GameBitmaps[handle].mip_levels;
 
   // If this bitmap is not page in, do so!
-  if (GameBitmaps[handle].flags & BF_NOT_RESIDENT)
+  if ((GameBitmaps[handle].flags & BF_NOT_RESIDENT) && !PS2_RESIDENT_FOR_INFO(handle))
     if (!bm_MakeBitmapResident(handle))
       return 0;
   if (GameBitmaps[handle].flags & BF_MIPMAPPED) {
@@ -1171,7 +1268,7 @@ int bm_mipped(int handle) {
     return -1;
   }
   // If this bitmap is not page in, do so!
-  if (GameBitmaps[handle].flags & BF_NOT_RESIDENT)
+  if ((GameBitmaps[handle].flags & BF_NOT_RESIDENT) && !PS2_RESIDENT_FOR_INFO(handle))
     if (!bm_MakeBitmapResident(handle))
       return 0;
   if (GameBitmaps[handle].flags & BF_MIPMAPPED)
@@ -1188,9 +1285,22 @@ uint16_t *bm_data(int handle, int miplevel) {
   }
 
   // If this bitmap is not page in, do so!
-  if (GameBitmaps[handle].flags & BF_NOT_RESIDENT)
+  if (GameBitmaps[handle].flags & BF_NOT_RESIDENT) {
+#ifdef __PS2__
+    Bm_evicted[handle] = 0;
+    if (Bm_drop[handle] && !Bm_from_file[handle]) {
+      mprintf(0, "PS2: the texels of chunk bitmap %d are wanted again: black\n", handle);
+      int w = GameBitmaps[handle].width, h = GameBitmaps[handle].height;
+      uint8_t flags = GameBitmaps[handle].flags;
+      if (bm_AllocateMemoryForIndex(handle, w, h, 0) < 0)
+        return NULL;
+      memset(GameBitmaps[handle].data16, 0, w * h * 2);
+      GameBitmaps[handle].flags = (flags & ~BF_NOT_RESIDENT) | BF_CHANGED;
+    }
+#endif
     if (!bm_MakeBitmapResident(handle))
       return NULL;
+  }
 
   d = GameBitmaps[handle].data16;
   for (i = 0; i < miplevel; i++) {
@@ -1452,6 +1562,9 @@ bool bm_CreateChunkedBitmap(int bm_handle, chunked_bitmap *chunk) {
   for (i = 0; i < how_many_down * how_many_across; i++) {
     bm_array[i] = bm_AllocBitmap(iopt, iopt, 0);
     ASSERT(bm_array[i] > -1);
+#ifdef __PS2__
+    Bm_drop[bm_array[i]] = 1; // drawn only: its texels go once maxsdk_gl has them
+#endif
     // Fill our new pieces with transparency
     bm_ClearBitmap(bm_array[i]);
   }
@@ -1549,7 +1662,7 @@ int bm_format(int handle) {
     Int3();
     return -1;
   }
-  if (GameBitmaps[handle].flags & BF_NOT_RESIDENT)
+  if ((GameBitmaps[handle].flags & BF_NOT_RESIDENT) && !PS2_RESIDENT_FOR_INFO(handle))
     if (!bm_MakeBitmapResident(handle))
       return 0;
   return (GameBitmaps[handle].format);

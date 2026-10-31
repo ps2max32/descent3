@@ -2218,7 +2218,7 @@ void TerrainDrawCurrentVert(int tcell) {
   if (TerrainSelected[tcell]) {
     g3Point pnt;
     pnt.p3_flags = 0;
-    pnt.p3_vec = World_point_buffer[tcell].p3_vec;
+    pnt.p3_vec = TerrainPoint(tcell).p3_vec;
     g3_ProjectPoint(&pnt); // make sure projected
 
     rend_SetFlatColor(GR_RGB(0, 250, 0));
@@ -2274,7 +2274,7 @@ void SortTerrainList(int cellcount) {
     n[3] = t + simplemul;
     for (k = 0; k < 4; k++)
       if (n[k] <= 65535)
-        Terrain_list[i].z += World_point_buffer[n[k]].p3_vec.z;
+        Terrain_list[i].z += TerrainPoint(n[k]).p3_vec.z;
     Terrain_list[i].z /= 4;
   }
   // Sort the faces
@@ -2506,25 +2506,28 @@ void RotateTerrainList(int cellcount, bool from_automap) {
     for (k = 0; k < edgecount; k++) {
       if (Terrain_rotate_list[n[k]] != TS_FrameCount) {
         Terrain_rotate_list[n[k]] = TS_FrameCount;
+#ifdef __PS2__
+        Terrain_point_slot[n[k]] = Terrain_points_used < TERRAIN_POINTS ? Terrain_points_used++ : TERRAIN_POINTS;
+#endif
         GlobalTransCount++;
 
         cx = n[k] % TERRAIN_WIDTH;
         cz = n[k] / TERRAIN_WIDTH;
 
-        World_point_buffer[n[k]].p3_flags = PF_UV | PF_UV2;
+        TerrainPoint(n[k]).p3_flags = PF_UV | PF_UV2;
         if (Terrain_seg[n[k]].mody == Terrain_seg[n[k]].y) {
-          GetPreRotatedPoint(&World_point_buffer[n[k]], cx, cz, Terrain_seg[n[k]].ypos);
+          GetPreRotatedPoint(&TerrainPoint(n[k]), cx, cz, Terrain_seg[n[k]].ypos);
         } else {
-          GetSpecialRotatedPoint(&World_point_buffer[n[k]], cx, cz, Terrain_seg[n[k]].mody);
+          GetSpecialRotatedPoint(&TerrainPoint(n[k]), cx, cz, Terrain_seg[n[k]].mody);
         }
 
         if (Viewer_object->effect_info && (Viewer_object->effect_info->type_flags & EF_DEFORM)) {
           float val = (((ps_rand() % 1000) - 500.0f) / 500.0f) * Viewer_object->effect_info->deform_time;
           vector jitterVec = Terrain_alter_vec * (Viewer_object->effect_info->deform_range * val);
-          World_point_buffer[n[k]].p3_vec += jitterVec;
-          World_point_buffer[n[k]].p3_vecPreRot += jitterVec;
+          TerrainPoint(n[k]).p3_vec += jitterVec;
+          TerrainPoint(n[k]).p3_vecPreRot += jitterVec;
         }
-        g3_CodePoint(&World_point_buffer[n[k]]);
+        g3_CodePoint(&TerrainPoint(n[k]));
       }
     }
   }
@@ -2552,10 +2555,10 @@ void TerrainCellVisible(int index, int *upper_left, int *lower_right) {
     smul_z = simplemul;
 
   // Note - this is upper left and proceeds clockwise
-  corner[0] = &World_point_buffer[seg + (TERRAIN_WIDTH * smul_z)].p3_vec;
-  corner[1] = &World_point_buffer[seg + (TERRAIN_WIDTH * smul_z) + smul_x].p3_vec;
-  corner[2] = &World_point_buffer[seg].p3_vec;
-  corner[3] = &World_point_buffer[seg + smul_x].p3_vec;
+  corner[0] = &TerrainPoint(seg + (TERRAIN_WIDTH * smul_z)).p3_vec;
+  corner[1] = &TerrainPoint(seg + (TERRAIN_WIDTH * smul_z) + smul_x).p3_vec;
+  corner[2] = &TerrainPoint(seg).p3_vec;
+  corner[3] = &TerrainPoint(seg + smul_x).p3_vec;
 
   vm_GetPerp(&tempv, corner[0], corner[1], corner[2]);
   if ((tempv * *corner[1]) < 0)
@@ -2751,7 +2754,7 @@ int DrawTerrainTrianglesSoftware(int index, int bm_handle, int upper_left, int l
           rend_SetOverlayType (OT_NONE);
           for (close=0,i=0;i<4;i++)
           {
-                  base[i]=*((g3Point *)&World_point_buffer[tlist[i]]);
+                  base[i]=*((g3Point *)&TerrainPoint(tlist[i]));
                   base[i].p3_flags|=(PF_L|PF_RGBA);
                   base[i].p3_l=Ubyte_to_float[Terrain_seg[tlist[i]].l];
 
@@ -2940,15 +2943,15 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
   if (lod == (MAX_TERRAIN_LOD - 1)) {
     uvadjust = (simplemul / 128.0);
     cur_seg = n + (TERRAIN_WIDTH * smul_z);
-    base[0] = World_point_buffer[cur_seg];
+    base[0] = TerrainPoint(cur_seg);
 
     cur_seg = n + (TERRAIN_WIDTH * smul_z) + smul_x;
-    base[1] = World_point_buffer[cur_seg];
+    base[1] = TerrainPoint(cur_seg);
 
     cur_seg = n + smul_x;
-    base[2] = World_point_buffer[cur_seg];
+    base[2] = TerrainPoint(cur_seg);
 
-    base[3] = World_point_buffer[n];
+    base[3] = TerrainPoint(n);
 
     base[0].p3_u = tile * TerrainUSpeedup[rotator][subz * LOD_ROW_SIZE + subx];
     base[0].p3_v = tile * TerrainVSpeedup[rotator][subz * LOD_ROW_SIZE + subx];
@@ -2981,7 +2984,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // Top edge
         if (Terrain_list[index].top_edge & (1 << i)) {
           cur_seg = n + i + (TERRAIN_WIDTH * smul_z);
-          base[testt] = World_point_buffer[cur_seg];
+          base[testt] = TerrainPoint(cur_seg);
 
           base[testt].p3_u = tile * TerrainUSpeedup[rotator][subz * LOD_ROW_SIZE + subx + i];
           base[testt].p3_v = tile * TerrainVSpeedup[rotator][subz * LOD_ROW_SIZE + subx + i];
@@ -2994,7 +2997,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // Right edge
         if (Terrain_list[index].right_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * (smul_z - i)) + smul_x;
-          base[right_start + testr] = World_point_buffer[cur_seg];
+          base[right_start + testr] = TerrainPoint(cur_seg);
 
           base[right_start + testr].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + i) * LOD_ROW_SIZE) + subx + simplemul];
@@ -3009,7 +3012,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // Bottom edge
         if (Terrain_list[index].bottom_edge & (1 << i)) {
           cur_seg = n + (smul_x - i);
-          base[bottom_start + testb] = World_point_buffer[cur_seg];
+          base[bottom_start + testb] = TerrainPoint(cur_seg);
 
           base[bottom_start + testb].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + simplemul) * LOD_ROW_SIZE) + (subx + simplemul) - i];
@@ -3023,7 +3026,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // left edge
         if (Terrain_list[index].left_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * i);
-          base[left_start + testl] = World_point_buffer[cur_seg];
+          base[left_start + testl] = TerrainPoint(cur_seg);
 
           base[left_start + testl].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + simplemul - i) * LOD_ROW_SIZE) + subx];
@@ -3046,7 +3049,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // top edge
         if (Terrain_list[index].top_edge & (1 << i)) {
           cur_seg = n + i + (TERRAIN_WIDTH * smul_z);
-          base[testt] = World_point_buffer[cur_seg];
+          base[testt] = TerrainPoint(cur_seg);
 
           base[testt].p3_u = tile * TerrainUSpeedup[rotator][subz * LOD_ROW_SIZE + subx + i];
           base[testt].p3_v = tile * TerrainVSpeedup[rotator][subz * LOD_ROW_SIZE];
@@ -3059,7 +3062,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // Bottom edge
         if (Terrain_list[index].bottom_edge & (1 << i)) {
           cur_seg = n + (smul_x - i);
-          base[bottom_start + testb] = World_point_buffer[cur_seg];
+          base[bottom_start + testb] = TerrainPoint(cur_seg);
 
           base[bottom_start + testb].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + smul_z) * LOD_ROW_SIZE) + subx + smul_x - i];
@@ -3076,7 +3079,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // Right edge
         if (Terrain_list[index].right_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * (smul_z - i)) + smul_x;
-          base[right_start + testr] = World_point_buffer[cur_seg];
+          base[right_start + testr] = TerrainPoint(cur_seg);
 
           base[right_start + testr].p3_u = tile * TerrainUSpeedup[rotator][((subz + i) * LOD_ROW_SIZE) + subx + smul_x];
           base[right_start + testr].p3_v = tile * TerrainVSpeedup[rotator][((subz + i) * LOD_ROW_SIZE) + subx + smul_x];
@@ -3089,7 +3092,7 @@ int DrawTerrainTrianglesHardware(int index, int bm_handle, int upper_left, int l
         // left edge
         if (Terrain_list[index].left_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * i);
-          base[left_start + testl] = World_point_buffer[cur_seg];
+          base[left_start + testl] = TerrainPoint(cur_seg);
 
           base[left_start + testl].p3_u = tile * TerrainUSpeedup[rotator][((subz + smul_z - i) * LOD_ROW_SIZE) + subx];
           base[left_start + testl].p3_v = tile * TerrainVSpeedup[rotator][((subz + smul_z - i) * LOD_ROW_SIZE) + subx];
@@ -3188,15 +3191,15 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
   // Do simpler operation if at highest level of detail
   if (lod == (MAX_TERRAIN_LOD - 1)) {
     cur_seg = n + (TERRAIN_WIDTH * smul_z);
-    base[0] = World_point_buffer[cur_seg];
+    base[0] = TerrainPoint(cur_seg);
 
     cur_seg = n + (TERRAIN_WIDTH * smul_z) + smul_x;
-    base[1] = World_point_buffer[cur_seg];
+    base[1] = TerrainPoint(cur_seg);
 
     cur_seg = n + smul_x;
-    base[2] = World_point_buffer[cur_seg];
+    base[2] = TerrainPoint(cur_seg);
 
-    base[3] = World_point_buffer[n];
+    base[3] = TerrainPoint(n);
 
     base[0].p3_u = tile * TerrainUSpeedup[rotator][subz * LOD_ROW_SIZE + subx];
     base[0].p3_v = tile * TerrainVSpeedup[rotator][subz * LOD_ROW_SIZE + subx];
@@ -3217,7 +3220,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // Top edge
         if (Terrain_list[index].top_edge & (1 << i)) {
           cur_seg = n + i + (TERRAIN_WIDTH * smul_z);
-          base[testt] = World_point_buffer[cur_seg];
+          base[testt] = TerrainPoint(cur_seg);
 
           base[testt].p3_u = tile * TerrainUSpeedup[rotator][subz * LOD_ROW_SIZE + subx + i];
           base[testt].p3_v = tile * TerrainVSpeedup[rotator][subz * LOD_ROW_SIZE + subx + i];
@@ -3228,7 +3231,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // Right edge
         if (Terrain_list[index].right_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * (smul_z - i)) + smul_x;
-          base[right_start + testr] = World_point_buffer[cur_seg];
+          base[right_start + testr] = TerrainPoint(cur_seg);
 
           base[right_start + testr].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + i) * LOD_ROW_SIZE) + subx + simplemul];
@@ -3241,7 +3244,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // Bottom edge
         if (Terrain_list[index].bottom_edge & (1 << i)) {
           cur_seg = n + (smul_x - i);
-          base[bottom_start + testb] = World_point_buffer[cur_seg];
+          base[bottom_start + testb] = TerrainPoint(cur_seg);
 
           base[bottom_start + testb].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + simplemul) * LOD_ROW_SIZE) + subx + simplemul - i];
@@ -3253,7 +3256,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // left edge
         if (Terrain_list[index].left_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * i);
-          base[left_start + testl] = World_point_buffer[cur_seg];
+          base[left_start + testl] = TerrainPoint(cur_seg);
 
           base[left_start + testl].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + simplemul - i) * LOD_ROW_SIZE) + subx];
@@ -3274,7 +3277,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // top edge
         if (Terrain_list[index].top_edge & (1 << i)) {
           cur_seg = n + i + (TERRAIN_WIDTH * smul_z);
-          base[testt] = World_point_buffer[cur_seg];
+          base[testt] = TerrainPoint(cur_seg);
 
           base[testt].p3_u = tile * TerrainUSpeedup[rotator][subz * LOD_ROW_SIZE + subx + i];
           base[testt].p3_v = tile * TerrainVSpeedup[rotator][subz * LOD_ROW_SIZE + subx + i];
@@ -3285,7 +3288,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // Bottom edge
         if (Terrain_list[index].bottom_edge & (1 << i)) {
           cur_seg = n + (smul_x - i);
-          base[bottom_start + testb] = World_point_buffer[cur_seg];
+          base[bottom_start + testb] = TerrainPoint(cur_seg);
 
           base[bottom_start + testb].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + simplemul) * LOD_ROW_SIZE) + subx + simplemul - i];
@@ -3301,7 +3304,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // Right edge
         if (Terrain_list[index].right_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * (smul_z - i)) + smul_x;
-          base[right_start + testr] = World_point_buffer[cur_seg];
+          base[right_start + testr] = TerrainPoint(cur_seg);
 
           base[right_start + testr].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + i) * LOD_ROW_SIZE) + subx + simplemul];
@@ -3314,7 +3317,7 @@ int DrawTerrainTrianglesHardwareNoLight(int index, int bm_handle, int upper_left
         // left edge
         if (Terrain_list[index].left_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * i);
-          base[left_start + testl] = World_point_buffer[cur_seg];
+          base[left_start + testl] = TerrainPoint(cur_seg);
 
           base[left_start + testl].p3_u =
               tile * TerrainUSpeedup[rotator][((subz + simplemul - i) * LOD_ROW_SIZE) + subx];
@@ -3425,15 +3428,15 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
   if (lod == (MAX_TERRAIN_LOD - 1)) {
     uvadjust = (simplemul / 128.0);
     cur_seg = n + (TERRAIN_WIDTH * smul_z);
-    base[0] = World_point_buffer[cur_seg];
+    base[0] = TerrainPoint(cur_seg);
 
     cur_seg = n + (TERRAIN_WIDTH * smul_z) + smul_x;
-    base[1] = World_point_buffer[cur_seg];
+    base[1] = TerrainPoint(cur_seg);
 
     cur_seg = n + smul_x;
-    base[2] = World_point_buffer[cur_seg];
+    base[2] = TerrainPoint(cur_seg);
 
-    base[3] = World_point_buffer[n];
+    base[3] = TerrainPoint(n);
 
     base[0].p3_u = lightmap_u;
     base[0].p3_v = lightmap_v;
@@ -3457,7 +3460,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // Top edge
         if (Terrain_list[index].top_edge & (1 << i)) {
           cur_seg = n + i + (TERRAIN_WIDTH * smul_z);
-          base[testt] = World_point_buffer[cur_seg];
+          base[testt] = TerrainPoint(cur_seg);
 
           base[testt].p3_u = lightmap_u + (i * uvadjust);
           base[testt].p3_v = lightmap_v;
@@ -3467,7 +3470,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // Right edge
         if (Terrain_list[index].right_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * (smul_z - i)) + smul_x;
-          base[right_start + testr] = World_point_buffer[cur_seg];
+          base[right_start + testr] = TerrainPoint(cur_seg);
 
           base[right_start + testr].p3_u = lightmap_u + uvmul;
           base[right_start + testr].p3_v = lightmap_v + (i * uvadjust);
@@ -3477,7 +3480,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // Bottom edge
         if (Terrain_list[index].bottom_edge & (1 << i)) {
           cur_seg = n + (smul_x - i);
-          base[bottom_start + testb] = World_point_buffer[cur_seg];
+          base[bottom_start + testb] = TerrainPoint(cur_seg);
 
           base[bottom_start + testb].p3_u = lightmap_u + uvmul - (i * uvadjust);
           base[bottom_start + testb].p3_v = lightmap_v + uvmul;
@@ -3487,7 +3490,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // left edge
         if (Terrain_list[index].left_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * i);
-          base[left_start + testl] = World_point_buffer[cur_seg];
+          base[left_start + testl] = TerrainPoint(cur_seg);
 
           base[left_start + testl].p3_u = lightmap_u;
           base[left_start + testl].p3_v = lightmap_v + uvmul - (i * uvadjust);
@@ -3505,7 +3508,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // top edge
         if (Terrain_list[index].top_edge & (1 << i)) {
           cur_seg = n + i + (TERRAIN_WIDTH * smul_z);
-          base[testt] = World_point_buffer[cur_seg];
+          base[testt] = TerrainPoint(cur_seg);
 
           base[testt].p3_u = lightmap_u + (i * uvadjust);
           base[testt].p3_v = lightmap_v;
@@ -3515,7 +3518,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // Bottom edge
         if (Terrain_list[index].bottom_edge & (1 << i)) {
           cur_seg = n + (smul_x - i);
-          base[bottom_start + testb] = World_point_buffer[cur_seg];
+          base[bottom_start + testb] = TerrainPoint(cur_seg);
 
           base[bottom_start + testb].p3_u = lightmap_u + uvmul - (i * uvadjust);
           base[bottom_start + testb].p3_v = lightmap_v + uvmul;
@@ -3528,7 +3531,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // Right edge
         if (Terrain_list[index].right_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * (smul_z - i)) + smul_x;
-          base[right_start + testr] = World_point_buffer[cur_seg];
+          base[right_start + testr] = TerrainPoint(cur_seg);
 
           base[right_start + testr].p3_u = lightmap_u + uvmul;
           base[right_start + testr].p3_v = lightmap_v + (i * uvadjust);
@@ -3538,7 +3541,7 @@ void DrawTerrainLightmapsHardware(int index, int upper_left, int lower_right) {
         // left edge
         if (Terrain_list[index].left_edge & (1 << i)) {
           cur_seg = n + (TERRAIN_WIDTH * i);
-          base[left_start + testl] = World_point_buffer[cur_seg];
+          base[left_start + testl] = TerrainPoint(cur_seg);
 
           base[left_start + testl].p3_u = lightmap_u;
           base[left_start + testl].p3_v = lightmap_v + uvmul - (i * uvadjust);

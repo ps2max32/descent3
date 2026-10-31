@@ -102,6 +102,7 @@ void Sleep(int millis) {
   select(0, nullptr, nullptr, nullptr, &tv);
 }
 
+#ifndef __PS2__ // picolibc has it
 char *strupr(char *string) {
   while (string && *string) {
     *string = toupper(*string);
@@ -109,6 +110,7 @@ char *strupr(char *string) {
   }
   return string;
 }
+#endif
 
 static uint32_t LinuxAppFlags = 0;
 // static Display *LinuxAppDisplay=NULL;

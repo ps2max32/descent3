@@ -572,8 +572,10 @@ void TelComInit(void) {
     return;
   }
 
+#ifndef __PS2__ // the PS2: loaded when the TelCom shows (TelComMain), 640 KiB
   if (!LoadTelcomBitmap(TELCOM_DISPLAY_OGF, &Telcom_bitmap))
     Error("Unable to open %s in TelCom system.", TELCOM_DISPLAY_OGF);
+#endif
 
   TelCom_init = true;
 
@@ -763,6 +765,11 @@ void TelComMain(bool ingame, bool SelectShip) {
   DestroyAllScreens(true);
 
   EfxClose();
+#ifdef __PS2__
+  bm_DestroyChunkedBitmap(&Telcom_bitmap);
+  Telcom_bitmap.bm_array = NULL;
+  Telcom_bitmap.w = Telcom_bitmap.h = 0;
+#endif
 }
 
 // This will make the TelCom system active, displaying it on the screen.  This version of TelComShow() takes
@@ -810,6 +817,10 @@ bool TelComShow(bool ingame, bool ShipSelect) {
 
   hotspot_bitmaps = NULL;
 
+#ifdef __PS2__ // the background (TelComInit), before the hotspot map below
+  if (!Telcom_bitmap.bm_array && !LoadTelcomBitmap(TELCOM_DISPLAY_OGF, &Telcom_bitmap))
+    Error("Unable to open %s in TelCom system.", TELCOM_DISPLAY_OGF);
+#endif
   int TelCom_bitmap = bm_AllocLoadFileBitmap(IGNORE_TABLE(TELCOM_DISPLAY_OGF), 0);
   if (!cfexist(HOTSPOT_DISPLAY)) {
     mprintf(0, "Couldn't find HotSpot map, so I'm going to make one\n");
