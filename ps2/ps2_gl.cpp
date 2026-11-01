@@ -1,15 +1,15 @@
 /* ps2_gl.cpp: the GL that Descent 3's renderer (renderer/HardwareOpenGL.cpp)
-   finds through SDL_GL_GetProcAddress, on libs/maxsdk_gl.
+   finds through SDL_GL_GetProcAddress, on libs/libgl.
 
-   The GS has one texture unit and maxsdk_gl draws with it only; the game
+   The GS has one texture unit and libgl draws with it only; the game
    sees two (ARB_multitexture): the calls that name a texture unit are kept
-   here, and maxsdk_gl always has the texture of the active unit bound.
+   here, and libgl always has the texture of the active unit bound.
    Textures made while unit 1 is active are lightmaps: kept as their
    brightness (mxgl_TexBrightness; the small ones in atlas pages), drawn by
    the polygon's second pass, blended DST_COLOR, ZERO (the GS's Cd * As).
 
    The renderer's polygons (gpu_RenderPolygon, gpu_RenderPolygonUV2) come
-   here (ps2_render_polygon): maxsdk_gl takes s, t (the game's s/w, t/w)
+   here (ps2_render_polygon): libgl takes s, t (the game's s/w, t/w)
    and colours as bytes. */
 
 #include <stdio.h>
@@ -35,8 +35,8 @@ extern "C" void ps2_mem_report(const char *when); /* ps2_mem.c */
 /* ---- textures: the game's names ------------------------------------------------ */
 
 /* The game names its textures itself (1, 2, ...: tens of thousands with a
-   level's lightmaps); maxsdk_gl has MAX_TEX (2048). A game name is a
-   maxsdk_gl texture of its own, or, for a lightmap of up to 64 x 64, a slot
+   level's lightmaps); libgl has MAX_TEX (2048). A game name is a
+   libgl texture of its own, or, for a lightmap of up to 64 x 64, a slot
    in an atlas page: a 128 x 128 brightness texture of slots of one size (the
    lightmap's and a border of one texel, its edge again, against the bilinear
    filter's bleeding). */
@@ -45,7 +45,7 @@ extern "C" void ps2_mem_report(const char *when); /* ps2_mem.c */
 #define MAX_SLOTS 1024 /* (128 / 4)^2: 2 x 2 lightmaps */
 
 struct gtex {
-  uint16_t mx;   /* maxsdk_gl's texture (the page's for a lightmap in one) */
+  uint16_t mx;   /* libgl's texture (the page's for a lightmap in one) */
   uint8_t atlas; /* page + 1, 0: a texture of its own */
   uint8_t x, y;  /* its slot in the page (the border's corner) */
   uint8_t size;
@@ -59,7 +59,7 @@ static struct page {
   uint8_t used[MAX_SLOTS / 8];
 } pages[MAX_PAGES];
 
-static GLuint mx_bound; /* maxsdk_gl's */
+static GLuint mx_bound; /* libgl's */
 
 static void bind(GLuint t) {
   if (t != mx_bound) {
@@ -80,7 +80,7 @@ static gtex *gtex_of(GLuint n) {
   return &gt[n];
 }
 
-/* the maxsdk_gl texture of game name n (made for a name new to it) */
+/* the libgl texture of game name n (made for a name new to it) */
 static GLuint mx_of(GLuint n) {
   if (!n)
     return 0;
@@ -91,7 +91,7 @@ static GLuint mx_of(GLuint n) {
     GLuint m = 0;
     glGenTextures(1, &m);
     if (!m)
-      mx_printf("ps2: out of maxsdk_gl textures (game texture %u)\n", n);
+      mx_printf("ps2: out of libgl textures (game texture %u)\n", n);
     g->mx = (uint16_t)m;
   }
   return g->mx;
@@ -202,7 +202,7 @@ static void APIENTRY ps2_DeleteTextures(GLsizei n, const GLuint *t) {
     } else if (g->mx) {
       GLuint m = g->mx;
       if (m == mx_bound)
-        mx_bound = (GLuint)-1; /* bound again next time (maxsdk_gl makes it anew) */
+        mx_bound = (GLuint)-1; /* bound again next time (libgl makes it anew) */
       glDeleteTextures(1, &m);
     }
     memset(g, 0, sizeof *g);

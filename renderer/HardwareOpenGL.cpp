@@ -1067,7 +1067,7 @@ void opengl_TranslateBitmapToOpenGL(int texnum, int bm_handle, int map_type, int
         limit = 1;
       }
 #ifdef __PS2__
-      limit = 1; // maxsdk_gl makes the mipmap levels from level 0
+      limit = 1; // libgl makes the mipmap levels from level 0
 #endif
 
       for (int m = 0; m < limit; m++) {
@@ -1118,7 +1118,7 @@ void opengl_TranslateBitmapToOpenGL(int texnum, int bm_handle, int map_type, int
 #ifdef __PS2__
   else {
     extern void bm_PS2Evict(int handle);
-    bm_PS2Evict(bm_handle); // maxsdk_gl has the texels now
+    bm_PS2Evict(bm_handle); // libgl has the texels now
   }
 #endif
 
@@ -1549,7 +1549,7 @@ void rend_Close(void) {
 }
 
 #ifdef __PS2__
-// A bitmap or lightmap is freed: its texture goes too (maxsdk_gl keeps a
+// A bitmap or lightmap is freed: its texture goes too (libgl keeps a
 // copy of every texture in EE memory); made again if the handle is used.
 void rend_PS2FreeTexture(int handle, int lightmap) {
   uint16_t *remap = lightmap ? OpenGL_lightmap_remap : OpenGL_bitmap_remap;
@@ -1582,7 +1582,7 @@ void gpu_BindTexture(int handle, int map_type, int slot) {
 }
 
 #ifdef __PS2__
-// ps2/ps2_gl.cpp: maxsdk_gl's arrays, the lightmap as a second pass
+// ps2/ps2_gl.cpp: libgl's arrays, the lightmap as a second pass
 void ps2_render_polygon(PosColorUVVertex *vData, uint32_t nv);
 void ps2_render_polygon_uv2(PosColorUV2Vertex *vData, uint32_t nv);
 

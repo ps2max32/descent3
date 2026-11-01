@@ -439,7 +439,7 @@ bm_Node *bm_findNode(bm_T data) {
 //	simply frees up a bitmap
 void bm_FreeBitmapMain(int handle);
 #ifdef __PS2__
-// Bitmaps loaded from a file whose texels are in maxsdk_gl only (its own
+// Bitmaps loaded from a file whose texels are in libgl only (its own
 // copy of each texture): taken out after the upload (bm_PS2Evict), paged in
 // from the file again by bm_data. Their size and flags stay.
 static uint8_t Bm_from_file[MAX_BITMAPS], Bm_evicted[MAX_BITMAPS];
@@ -1563,7 +1563,7 @@ bool bm_CreateChunkedBitmap(int bm_handle, chunked_bitmap *chunk) {
     bm_array[i] = bm_AllocBitmap(iopt, iopt, 0);
     ASSERT(bm_array[i] > -1);
 #ifdef __PS2__
-    Bm_drop[bm_array[i]] = 1; // drawn only: its texels go once maxsdk_gl has them
+    Bm_drop[bm_array[i]] = 1; // drawn only: its texels go once libgl has them
 #endif
     // Fill our new pieces with transparency
     bm_ClearBitmap(bm_array[i]);

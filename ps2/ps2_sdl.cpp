@@ -1,6 +1,6 @@
 /* ps2_sdl.cpp: the SDL2 calls Descent 3 makes, on maxsdk, and main.
 
-   Video: one window, the GS picture through libs/maxsdk_gl (mxgl_window
+   Video: one window, the GS picture through libs/libgl (mxgl_window
    gives the game the size it asks for); SDL_GL_GetProcAddress is in
    ps2_gl.cpp. Input: pad 0, read in SDL_PumpEvents, becomes the keyboard
    and mouse events the game knows (its own controls then work as they are)
@@ -301,7 +301,7 @@ extern "C" void *mx_heap_end(void);
 
 /* maxsdk's virtual memory (<mx/vm.h>): malloc in up to 128 MiB, paged to a
    swap file in the game's directory; the core heap (PS2_CORE_HEAP) holds
-   what the DMAC reads: maxsdk_gl's arenas and textures. Without TLB misses
+   what the DMAC reads: libgl's arenas and textures. Without TLB misses
    (PCSX2's recompiler) VM stays off and the game has the 32 MiB as before. */
 extern "C" const struct mx_vm_config mx_vm_config = {
     .swap = "host:" PS2_SWAP,

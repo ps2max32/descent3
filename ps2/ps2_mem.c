@@ -13,7 +13,7 @@
 
 int mx_printf(const char *fmt, ...);
 
-/* the core heap (maxsdk_gl's textures and arenas) and the VM's counters */
+/* the core heap (libgl's textures and arenas) and the VM's counters */
 static void status(const char *when) {
   struct mx_core_stats c;
   mx_core_stats(&c);

@@ -11,7 +11,7 @@
 # tree, without exceptions and threads, on a picolibc built with POSIX I/O;
 # ps2/ps2_posix.c puts open, read, stat, opendir ... on the IOP file server.
 # SDL2 is not ported: ps2/ps2_sdl.cpp has the calls Descent 3 makes (pad as
-# joystick, the GL calls from libs/maxsdk_gl). The level scripts (OSIRIS
+# joystick, the GL calls from libs/libgl). The level scripts (OSIRIS
 # DLLs) are linked in, each with its symbols made local but its exports.
 
 HERE     := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
@@ -20,16 +20,16 @@ MAXSDK   ?= $(PS2MAX)/libs/maxsdk
 MAXSDK_OUT ?= $(PS2MAX)/build/libs/maxsdk
 # DEMO=1: the Descent 3 demo (its data: d3demo.hog), built apart
 DEMO     ?= 0
-LIBOUT   := $(PS2MAX)/build/apps/maxsdk_descent3
+LIBOUT   := $(PS2MAX)/build/apps/descent3
 # MEMLOG=1 (below) builds apart too
 OUT      ?= $(LIBOUT)$(if $(filter 1,$(DEMO)),-demo)$(if $(filter vm,$(MX_MEMORY)),-vm)$(if $(filter 1,$(MEMLOG)),-memlog)
 all: $(OUT)/descent3.elf
-MXGL     ?= $(PS2MAX)/libs/maxsdk_gl
+MXGL     ?= $(PS2MAX)/libs/libgl
 # frame arenas of 256 KB (the frames of the demo take up to 160 KB)
 MXGL_ARENA_BYTES ?= 262144
 include $(MXGL)/mk/mxgl.mk
 include $(MAXSDK)/mk/maxsdk.mk
-# MX_MEMORY=vm (started by mxload.elf): the game in VM, maxsdk_gl in core
+# MX_MEMORY=vm (started by mxload.elf): the game in VM, libgl in core
 MX_CORE_OBJS = $(MXGL_OBJS)
 
 LLVM_SRC ?= $(PS2MAX)/toolchain/generic/llvm/llvm-project
@@ -70,7 +70,7 @@ HOT := renderer/% physics/% vecmat/% fix/% model/% Descent3/render Descent3/terr
 LOG ?= 1
 # MEMLOG=1: the large allocations in the log (ps2/ps2_mem.c)
 MEMLOG ?= 0
-# CORE_HEAP: MiB of core memory with virtual memory on (maxsdk_gl's arenas
+# CORE_HEAP: MiB of core memory with virtual memory on (libgl's arenas
 # and textures: the DMAC reads them); SWAP: the swap file on the file server
 CORE_HEAP ?= 12
 SWAP ?= d3/descent3.swp

@@ -654,7 +654,7 @@ void PageInTexture(int n, bool resize) {
   texture *texp = &GameTextures[n];
 
 #ifdef __PS2__
-  // in maxsdk_gl already (and the game's copy gone): nothing to page in
+  // in libgl already (and the game's copy gone): nothing to page in
   extern bool bm_PS2InGL(int handle);
   if (!(texp->flags & (TF_ANIMATED | TF_PROCEDURAL)) && bm_PS2InGL(texp->bm_handle))
     return;
@@ -734,7 +734,7 @@ void PageInTexture(int n, bool resize) {
   bm_PS2Unscratch(texp->bm_handle);
 #endif
 #ifdef __PS2__
-  // to maxsdk_gl now, the game's copy dropped (only drawn): the level's
+  // to libgl now, the game's copy dropped (only drawn): the level's
   // textures are not kept twice, nor during the rest of the loading (the
   // renderer is not set up again for the game: game.cpp)
   if (!(texp->flags & (TF_ANIMATED | TF_PROCEDURAL)) && texp->bm_handle > 0) {
