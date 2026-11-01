@@ -30,22 +30,6 @@ ssize_t mx_glue_write(int fd, const void *buf, size_t n);
 void mx_glue_exit(int status) __attribute__((noreturn));
 int mx_printf(const char *fmt, ...);
 
-/* the heap: maxsdk's glue (sbrk renamed); with PS2_BIGHEAP it goes on in
-   the RAM above 32 MiB of a 128 MiB machine (PCSX2's development console),
-   to see how much the game wants */
-void *mx_glue_sbrk(ptrdiff_t incr);
-void *sbrk(ptrdiff_t incr) {
-  void *p = mx_glue_sbrk(incr);
-#ifdef PS2_BIGHEAP
-  static char *big = (char *)0x02000000;
-  if (p == (void *)-1 && incr >= 0 && big + incr <= (char *)0x08000000) {
-    p = big;
-    big += (incr + 15) & ~15;
-  }
-#endif
-  return p;
-}
-
 /* the end of the program (exit, after its handlers): the test runner's end
    marker with the status */
 void _exit(int status) {

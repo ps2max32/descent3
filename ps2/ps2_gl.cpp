@@ -30,6 +30,7 @@ extern "C" {
 #include "runcfg.h"
 
 void ps2_end(int status);
+extern "C" void ps2_mem_report(const char *when); /* ps2_mem.c */
 
 /* ---- textures: the game's names ------------------------------------------------ */
 
@@ -413,6 +414,7 @@ void ps2_frame_end(void) {
   if (PS2_FRAMES && frame == PS2_FRAMES) {
     int r = mxgl_screenshot(PS2_SHOT);
     mx_printf("ps2: %u frames, picture %s: %d\n", frame, PS2_SHOT, r);
+    ps2_mem_report("end");
     ps2_end(0);
   }
 }

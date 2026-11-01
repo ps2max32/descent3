@@ -2,13 +2,32 @@
    memalign and free) every block gets a header with its caller and size:
    the allocations of 64 KiB and more are logged with their caller and the
    bytes in use, and at the first failure (and at ps2_mem_report) the
-   callers that hold the most. */
+   callers that hold the most. Always: the core heap and the virtual
+   memory's counters at ps2_mem_report. */
 
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
+#include <mx/vm.h>
+
 int mx_printf(const char *fmt, ...);
+
+/* the core heap (maxsdk_gl's textures and arenas) and the VM's counters */
+static void status(const char *when) {
+  struct mx_core_stats c;
+  mx_core_stats(&c);
+  mx_printf("mem: %s: core heap %u of %u KiB used, %u largest free\n", when, c.used >> 10,
+            c.total >> 10, c.largest_free >> 10);
+  if (!mx_vm_active())
+    return;
+  struct mx_vm_stats v;
+  mx_vm_stats(&v);
+  mx_printf("mem: vm: %u frames (%u free, %u pinned), faults %u, zero fills %u, swap in %u "
+            "out %u, drops %u, file in %u; %u ms swap in, %u ms out\n",
+            v.frames, v.free_frames, v.pinned, v.faults, v.zero_fills, v.swap_ins, v.swap_outs,
+            v.drops, v.file_ins, v.us_swap_in / 1000, v.us_swap_out / 1000);
+}
 
 #ifdef PS2_MEMLOG
 void *__real_malloc(size_t n);
@@ -47,6 +66,7 @@ void ps2_mem_reset_peak(void) { peak = in_use; }
 
 void ps2_mem_report(const char *when) {
   static char used[NCALLERS];
+  status(when);
   memset(used, 0, sizeof used);
   mx_printf("mem: %s: %u KiB in use (peak %u); the callers that hold the most:\n", when,
             (unsigned)(in_use >> 10), (unsigned)(peak >> 10));
@@ -133,6 +153,6 @@ void __wrap_free(void *p) {
     drop(p);
 }
 #else
-void ps2_mem_report(const char *when) {}
+void ps2_mem_report(const char *when) { status(when); }
 void ps2_mem_reset_peak(void) {}
 #endif

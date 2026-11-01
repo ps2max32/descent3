@@ -649,6 +649,9 @@ void DoWaitPopup(bool enable, const char *message) {
 int DoMessageBox(const char *title, const char *msg, int type, ddgr_color title_color, ddgr_color text_color) {
   newuiMessageBox mbox;
   newuiSheet *sheet;
+#ifdef __PS2__
+  mprintf(0, "message box: %s: %s\n", title, msg); // on the console too
+#endif
 
   int old_screen_mode, res;
   char msgbuf[256];
@@ -690,6 +693,9 @@ int DoMessageBoxAdvanced(const char *title, const char *msg, const char *btn0_ti
   newuiMessageBox mbox;
   newuiSheet *sheet;
   va_list args;
+#ifdef __PS2__
+  mprintf(0, "message box: %s: %s\n", title, msg); // on the console too
+#endif
   const char *curbtntitle;
   int i;
 

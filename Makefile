@@ -22,13 +22,15 @@ MAXSDK_OUT ?= $(PS2MAX)/build/libs/maxsdk
 DEMO     ?= 0
 LIBOUT   := $(PS2MAX)/build/apps/maxsdk_descent3
 # MEMLOG=1 (below) builds apart too
-OUT      ?= $(LIBOUT)$(if $(filter 1,$(DEMO)),-demo)$(if $(filter 1,$(MEMLOG)),-memlog)$(if $(filter 1,$(BIGHEAP)),-bigheap)
+OUT      ?= $(LIBOUT)$(if $(filter 1,$(DEMO)),-demo)$(if $(filter vm,$(MX_MEMORY)),-vm)$(if $(filter 1,$(MEMLOG)),-memlog)
 all: $(OUT)/descent3.elf
 MXGL     ?= $(PS2MAX)/libs/maxsdk_gl
 # frame arenas of 256 KB (the frames of the demo take up to 160 KB)
 MXGL_ARENA_BYTES ?= 262144
 include $(MXGL)/mk/mxgl.mk
 include $(MAXSDK)/mk/maxsdk.mk
+# MX_MEMORY=vm (started by mxload.elf): the game in VM, maxsdk_gl in core
+MX_CORE_OBJS = $(MXGL_OBJS)
 
 LLVM_SRC ?= $(PS2MAX)/toolchain/generic/llvm/llvm-project
 PICOLIBC_SRC ?= $(PS2MAX)/libs/picolibc
@@ -40,7 +42,10 @@ LIBCXX_A   := $(LIBCXX)/lib/libc++.a
 CXX      := $(LLVM)/clang++
 
 LIBRT    = $(MAXSDK_OUT)/librt.a
-LIBMXC_OBJS = $(OUT)/libc/glue.o $(MAXSDK_OUT)/libc/compat.c.o $(MAXSDK_OUT)/libc/atomic.c.o
+# libmxc's malloc (TLSF), not picolibc's: that one clears what it hands out
+# and walks the heap on free, which over virtual memory means swap traffic
+LIBMXC_OBJS = $(OUT)/libc/glue.o $(MAXSDK_OUT)/libc/compat.c.o $(MAXSDK_OUT)/libc/atomic.c.o \
+              $(MAXSDK_OUT)/libc/malloc.c.o
 LIBC_LIBS = $(LIBMXC_OBJS) $(LIBCXX)/lib/libc++.a $(LIBCXX)/lib/libc++abi.a $(PICOLIBC_A) \
             $(MX_LIB) $(LIBRT)
 
@@ -65,15 +70,16 @@ HOT := renderer/% physics/% vecmat/% fix/% model/% Descent3/render Descent3/terr
 LOG ?= 1
 # MEMLOG=1: the large allocations in the log (ps2/ps2_mem.c)
 MEMLOG ?= 0
-# BIGHEAP=1: a test of how much memory the game wants: the heap goes on above
-# 32 MiB (PCSX2 with "128 MB RAM", ExtraMemory = true); with MEMLOG=1
-BIGHEAP ?= 0
+# CORE_HEAP: MiB of core memory with virtual memory on (maxsdk_gl's arenas
+# and textures: the DMAC reads them); SWAP: the swap file on the file server
+CORE_HEAP ?= 12
+SWAP ?= d3/descent3.swp
 MEMWRAP := $(if $(filter 1,$(MEMLOG)),$(foreach f,malloc calloc realloc memalign free,--wrap=$(f)))
 
 # the game's flags: hosted C++17, no exceptions; fast float math (the FPU
 # has no doubles; float literals)
 D3DEFS   := -DPOSIX -D__LINUX__ -D__PS2__ -DPRIMARY_HOG=\"d3-linux.hog\" -DRELEASE -DNDEBUG \
-            $(if $(filter 1,$(LOG)),-DLOGGER) $(if $(filter 1,$(DEMO)),-DDEMO) $(if $(filter 1,$(MEMLOG)),-DPS2_MEMLOG) $(if $(filter 1,$(BIGHEAP)),-DPS2_BIGHEAP) -DMEM_USE_RTL -DCHECKSUM=2273873307UL -D_GNU_SOURCE -D_USE_OGL_ACTIVE_TEXTURES -DSDL_MAIN_HANDLED
+            $(if $(filter 1,$(LOG)),-DLOGGER) $(if $(filter 1,$(DEMO)),-DDEMO) $(if $(filter 1,$(MEMLOG)),-DPS2_MEMLOG) -DMEM_USE_RTL -DCHECKSUM=2273873307UL -D_GNU_SOURCE -D_USE_OGL_ACTIVE_TEXTURES -DSDL_MAIN_HANDLED
 D3INC    := -I$(HERE)/cfile -I$(HERE)/ddebug -I$(HERE)/fix -I$(HERE)/lib -I$(HERE)/linux \
             -I$(HERE)/Descent3 -I$(HERE)/lib/linux -I$(HERE)/ps2/SDL2 -I$(OUT)/gen \
             $(foreach d,2dlib AudioEncode bitmap ddio grtext mem misc model music physics \
@@ -203,8 +209,9 @@ CXXDEPS := $(GEN) $(LIBCXX_A) $(HERE)/Makefile
 # file server. They go into $(OUT)/gen/runcfg.h, rewritten only when they
 # change.
 RUNCFG := $(OUT)/gen/runcfg.h
-$(shell mkdir -p $(OUT)/gen; printf '#define PS2_FRAMES %s\n#define PS2_PLAY %s\n#define PS2_ARGS "%s"\n#define PS2_SHOT "%s"\n#define PS2_DIR "%s"\n' \
-  '$(or $(FRAMES),0)' '$(or $(PLAY),0)' '$(ARGS)' '$(or $(SHOT),host:descent3.tga)' '$(or $(DIR),/d3)' > $(RUNCFG).new; \
+$(shell mkdir -p $(OUT)/gen; printf '#define PS2_FRAMES %s\n#define PS2_PLAY %s\n#define PS2_ARGS "%s"\n#define PS2_SHOT "%s"\n#define PS2_DIR "%s"\n#define PS2_CORE_HEAP (%su << 20)\n#define PS2_SWAP "%s"\n' \
+  '$(or $(FRAMES),0)' '$(or $(PLAY),0)' '$(ARGS)' '$(or $(SHOT),host:descent3.tga)' '$(or $(DIR),/d3)' \
+  '$(CORE_HEAP)' '$(SWAP)' > $(RUNCFG).new; \
   cmp -s $(RUNCFG).new $(RUNCFG) || mv $(RUNCFG).new $(RUNCFG); rm -f $(RUNCFG).new)
 
 # the game's main is d3_main: ps2/ps2_sdl.cpp has main
@@ -231,7 +238,7 @@ $(OUT)/zlib/%.o: $(ZLIB_SRC)/%.c $(PICOLIBC_A)
 $(OUT)/libc/glue.o: $(MAXSDK)/libc/glue.c $(PICOLIBC_A) $(HERE)/Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(filter-out -ffreestanding,$(CFLAGS)) -nostdlibinc $(SYSINC) -Dread=mx_glue_read \
-	  -Dwrite=mx_glue_write -D_exit=mx_glue_exit -Dsbrk=mx_glue_sbrk -c $< -o $@
+	  -Dwrite=mx_glue_write -D_exit=mx_glue_exit -c $< -o $@
 
 $(OUT)/descent3.elf: $(D3_OBJS) $(MXGL_OBJS) $(HLSL_OBJS) $(MX_LIB) $(MX_CRT0) $(MX_LD) $(LIBC_LIBS)
 	$(call link,$@,--error-limit=0 $(MEMWRAP) --defsym=__stack_size=0x80000 $(MX_CRT0) $(D3_OBJS) $(MXGL_OBJS) \
@@ -274,10 +281,21 @@ $(LIBCXX_A): $(PICOLIBC_A)
 # ---- running --------------------------------------------------------------------
 D3DATA   ?=
 RUNDIR   := $(PS2MAX)/build/pcsx2-test
+# MX_MEMORY=vm: through mxload.elf (host:mxload.txt names the game) on the
+# EE interpreter, the only one of PCSX2's that raises TLB misses; as
+# d3load.elf, since the runner stops the PCSX2 whose -elf it started (and
+# other programs run from mxload.elf too)
 run: $(OUT)/descent3.elf
 	@mkdir -p $(RUNDIR)/d3/missions
 	@[ -z "$(D3DATA)" ] || cp -rnv "$(D3DATA)"/*.hog "$(D3DATA)"/missions $(RUNDIR)/d3/
+ifeq ($(MX_MEMORY),vm)
+	cp $(OUT)/descent3.elf $(RUNDIR)/descent3.elf
+	printf 'host:descent3.elf' > $(RUNDIR)/mxload.txt
+	cp $(MX_LOADER) $(OUT)/d3load.elf
+	PCSX2_EE=interp ~/.claude/skills/ps2-pcsx2-test/run.sh $(OUT)/d3load.elf $(or $(TIMEOUT),3600)
+else
 	~/.claude/skills/ps2-pcsx2-test/run.sh $(OUT)/descent3.elf $(or $(TIMEOUT),600)
+endif
 
 clean:
 	rm -rf $(OUT)/d3 $(OUT)/ps2 $(OUT)/zlib $(OUT)/libc $(OUT)/gen $(OUT)/*.elf $(OUT)/*.map
