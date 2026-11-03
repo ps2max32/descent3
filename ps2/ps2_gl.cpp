@@ -5,7 +5,7 @@
    sees two (ARB_multitexture): the calls that name a texture unit are kept
    here, and libgl always has the texture of the active unit bound.
    Textures made while unit 1 is active are lightmaps: kept as their
-   brightness (mxgl_TexBrightness; the small ones in atlas pages), drawn by
+   brightness (GL_LUMINANCE8; the small ones in atlas pages), drawn by
    the polygon's second pass, blended DST_COLOR, ZERO (the GS's Cd * As).
 
    The renderer's polygons (gpu_RenderPolygon, gpu_RenderPolygonUV2) come
@@ -25,6 +25,7 @@
 extern "C" {
 #include <mxgl.h>
 #include <mx/debug.h>
+#include <mx/mx.h>
 }
 
 #include "runcfg.h"
@@ -130,8 +131,8 @@ static int atlas_place(int size, int *x, int *y) {
   pg->mx = m, pg->size = size, pg->per_row = per_row, pg->count = 1;
   pg->used[0] = 1;
   bind(m);
-  mxgl_TexBrightness();
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, PAGE, PAGE, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  /* GL_LUMINANCE8: kept as its brightness by libgl */
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE8, PAGE, PAGE, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -232,9 +233,8 @@ static void APIENTRY ps2_TexImage2D(GLenum target, GLint level, GLint ifmt, GLsi
     }
   }
   bind(mx_of(bound[unit]));
-  if (unit == 1)
-    mxgl_TexBrightness();
-  glTexImage2D(target, level, ifmt, w, h, border, fmt, type, px);
+  /* the lightmaps (unit 1) as their brightness: GL_LUMINANCE8 */
+  glTexImage2D(target, level, unit == 1 ? GL_LUMINANCE8 : ifmt, w, h, border, fmt, type, px);
 }
 
 static void APIENTRY ps2_TexSubImage2D(GLenum target, GLint level, GLint x, GLint y, GLsizei w,
@@ -404,14 +404,24 @@ void ps2_frame_end(void) {
   static unsigned frame;
   mxgl_end_frame();
   mxgl_frame_done();
-  if (!PS2_PLAY || GetGameState() == GAMESTATE_LVLPLAYING)
+  /* the counted frames' time (EE cycles, added up: the counter wraps) */
+  static unsigned long long cycles;
+  static unsigned last;
+  unsigned now = mx_count();
+  if (!PS2_PLAY || GetGameState() == GAMESTATE_LVLPLAYING) {
+    if (frame)
+      cycles += now - last;
     frame++;
+  }
+  last = now;
   static unsigned said;
   if (frame % 60 == 0 && frame != said) {
     said = frame;
     mx_printf("ps2: frame %u\n", frame);
   }
   if (PS2_FRAMES && frame == PS2_FRAMES) {
+    double s = (double)cycles / MX_EE_HZ;
+    mx_printf("ps2: %u frames, %.1f seconds: %.1f fps\n", frame - 1, s, s > 0 ? (frame - 1) / s : 0.0);
     int r = mxgl_screenshot(PS2_SHOT);
     mx_printf("ps2: %u frames, picture %s: %d\n", frame, PS2_SHOT, r);
     ps2_mem_report("end");

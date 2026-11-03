@@ -2,8 +2,8 @@
    memalign and free) every block gets a header with its caller and size:
    the allocations of 64 KiB and more are logged with their caller and the
    bytes in use, and at the first failure (and at ps2_mem_report) the
-   callers that hold the most. Always: the core heap and the virtual
-   memory's counters at ps2_mem_report. */
+   callers that hold the most. Always: the virtual memory's counters (with
+   the pinned memory, libgl's textures and arenas) at ps2_mem_report. */
 
 #include <stddef.h>
 #include <stdint.h>
@@ -13,20 +13,16 @@
 
 int mx_printf(const char *fmt, ...);
 
-/* the core heap (libgl's textures and arenas) and the VM's counters */
+/* the VM's counters (pinned memory: libgl's textures and arenas) */
 static void status(const char *when) {
-  struct mx_core_stats c;
-  mx_core_stats(&c);
-  mx_printf("mem: %s: core heap %u of %u KiB used, %u largest free\n", when, c.used >> 10,
-            c.total >> 10, c.largest_free >> 10);
   if (!mx_vm_active())
     return;
   struct mx_vm_stats v;
   mx_vm_stats(&v);
-  mx_printf("mem: vm: %u frames (%u free, %u pinned), faults %u, zero fills %u, swap in %u "
-            "out %u, drops %u, file in %u; %u ms swap in, %u ms out\n",
-            v.frames, v.free_frames, v.pinned, v.faults, v.zero_fills, v.swap_ins, v.swap_outs,
-            v.drops, v.file_ins, v.us_swap_in / 1000, v.us_swap_out / 1000);
+  mx_printf("mem: %s: vm: %u frames (%u free, %u pinned memory, %u pinned pages), faults %u, zero "
+            "fills %u, swap in %u out %u, drops %u, file in %u; %u ms swap in, %u ms out\n",
+            when, v.frames, v.free_frames, v.pinned_frames, v.pinned, v.faults, v.zero_fills,
+            v.swap_ins, v.swap_outs, v.drops, v.file_ins, v.us_swap_in / 1000, v.us_swap_out / 1000);
 }
 
 #ifdef PS2_MEMLOG

@@ -22,17 +22,22 @@ MAXSDK_OUT ?= $(PS2MAX)/build/libs/maxsdk
 DEMO     ?= 0
 LIBOUT   := $(PS2MAX)/build/apps/descent3
 # MEMLOG=1 (below) builds apart too
+# the game in virtual memory by default (started by mxload.elf), as the Quakes
+MX_MEMORY ?= vm
 OUT      ?= $(LIBOUT)$(if $(filter 1,$(DEMO)),-demo)$(if $(filter vm,$(MX_MEMORY)),-vm)$(if $(filter 1,$(MEMLOG)),-memlog)
 all: $(OUT)/descent3.elf
 MXGL     ?= $(PS2MAX)/libs/libgl
 # frame arenas of 256 KB (the frames of the demo take up to 160 KB)
 MXGL_ARENA_BYTES ?= 262144
+# beam racing's records: a frame of Polaris is up to 191 KB of libgl's
+# default 192 (three quarters of 256 KB); 384 KB each leaves room
+MXGL_REC_BYTES ?= 393216
 include $(MXGL)/mk/mxgl.mk
 include $(MAXSDK)/mk/maxsdk.mk
 # MX_MEMORY=vm (started by mxload.elf): the game in VM, libgl in core
 MX_CORE_OBJS = $(MXGL_OBJS)
 
-LLVM_SRC ?= $(PS2MAX)/toolchain/generic/llvm/llvm-project
+LLVM_SRC ?= $(PS2MAX_LLVM_SRC)
 PICOLIBC_SRC ?= $(PS2MAX)/libs/picolibc
 # this port's picolibc (POSIX I/O) and libc++
 PICOLIBC := $(LIBOUT)/picolibc/install
@@ -70,9 +75,7 @@ HOT := renderer/% physics/% vecmat/% fix/% model/% Descent3/render Descent3/terr
 LOG ?= 1
 # MEMLOG=1: the large allocations in the log (ps2/ps2_mem.c)
 MEMLOG ?= 0
-# CORE_HEAP: MiB of core memory with virtual memory on (libgl's arenas
-# and textures: the DMAC reads them); SWAP: the swap file on the file server
-CORE_HEAP ?= 12
+# SWAP: the swap file on the file server
 SWAP ?= d3/descent3.swp
 MEMWRAP := $(if $(filter 1,$(MEMLOG)),$(foreach f,malloc calloc realloc memalign free,--wrap=$(f)))
 
@@ -209,9 +212,9 @@ CXXDEPS := $(GEN) $(LIBCXX_A) $(HERE)/Makefile
 # file server. They go into $(OUT)/gen/runcfg.h, rewritten only when they
 # change.
 RUNCFG := $(OUT)/gen/runcfg.h
-$(shell mkdir -p $(OUT)/gen; printf '#define PS2_FRAMES %s\n#define PS2_PLAY %s\n#define PS2_ARGS "%s"\n#define PS2_SHOT "%s"\n#define PS2_DIR "%s"\n#define PS2_CORE_HEAP (%su << 20)\n#define PS2_SWAP "%s"\n' \
+$(shell mkdir -p $(OUT)/gen; printf '#define PS2_FRAMES %s\n#define PS2_PLAY %s\n#define PS2_ARGS "%s"\n#define PS2_SHOT "%s"\n#define PS2_DIR "%s"\n#define PS2_SWAP "%s"\n' \
   '$(or $(FRAMES),0)' '$(or $(PLAY),0)' '$(ARGS)' '$(or $(SHOT),host:descent3.tga)' '$(or $(DIR),/d3)' \
-  '$(CORE_HEAP)' '$(SWAP)' > $(RUNCFG).new; \
+  '$(SWAP)' > $(RUNCFG).new; \
   cmp -s $(RUNCFG).new $(RUNCFG) || mv $(RUNCFG).new $(RUNCFG); rm -f $(RUNCFG).new)
 
 # the game's main is d3_main: ps2/ps2_sdl.cpp has main
@@ -243,6 +246,20 @@ $(OUT)/libc/glue.o: $(MAXSDK)/libc/glue.c $(PICOLIBC_A) $(HERE)/Makefile
 $(OUT)/descent3.elf: $(D3_OBJS) $(MXGL_OBJS) $(HLSL_OBJS) $(MX_LIB) $(MX_CRT0) $(MX_LD) $(LIBC_LIBS)
 	$(call link,$@,--error-limit=0 $(MEMWRAP) --defsym=__stack_size=0x80000 $(MX_CRT0) $(D3_OBJS) $(MXGL_OBJS) \
 	  $(HLSL_OBJS) --start-group $(LIBC_LIBS) --end-group)
+
+# ---- d3-linux.hog -----------------------------------------------------------------
+# The 1.5 engine's own data (PRIMARY_HOG, opened last so searched first):
+# its string tables (D3.STR in 1.5's order; the demo's d3.str has 399 in an
+# older one), fonts and pictures, from scripts/data/fullhog by the host's
+# HogMaker. The scripts (.so) are linked in, so left out.
+HOGMAKER := $(LIBOUT)/hogmaker
+$(HOGMAKER): $(wildcard $(HERE)/tools/HogMaker/*) $(GEN)
+	c++ -std=c++17 -O2 -I$(HERE)/lib -I$(OUT)/gen $(HERE)/tools/HogMaker/HogFormat.cpp \
+	  $(HERE)/tools/HogMaker/HogMaker.cpp -o $@
+$(OUT)/d3-linux.hog: $(HOGMAKER) $(HERE)/scripts/data/fullhog/d3-linux-fullhog.txt
+	grep -v -i '\.so$$' $(HERE)/scripts/data/fullhog/d3-linux-fullhog.txt > $(OUT)/gen/d3-linux-hog.txt
+	$(HOGMAKER) $@ $(OUT)/gen/d3-linux-hog.txt $(HERE)/scripts/data/fullhog
+all: $(OUT)/d3-linux.hog
 
 # ---- picolibc and libc++ ------------------------------------------------------
 cxxlib: $(LIBCXX_A)
@@ -285,9 +302,10 @@ RUNDIR   := $(PS2MAX)/build/pcsx2-test
 # EE interpreter, the only one of PCSX2's that raises TLB misses; as
 # d3load.elf, since the runner stops the PCSX2 whose -elf it started (and
 # other programs run from mxload.elf too)
-run: $(OUT)/descent3.elf
+run: $(OUT)/descent3.elf $(OUT)/d3-linux.hog
 	@mkdir -p $(RUNDIR)/d3/missions
 	@[ -z "$(D3DATA)" ] || cp -rnv "$(D3DATA)"/*.hog "$(D3DATA)"/missions $(RUNDIR)/d3/
+	cp $(OUT)/d3-linux.hog $(RUNDIR)/d3/
 ifeq ($(MX_MEMORY),vm)
 	cp $(OUT)/descent3.elf $(RUNDIR)/descent3.elf
 	printf 'host:descent3.elf' > $(RUNDIR)/mxload.txt

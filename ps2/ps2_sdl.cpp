@@ -81,6 +81,10 @@ struct SDL_Window {
   Uint32 flags;
 };
 static SDL_Window the_window;
+/* the picture (libgl's mxgl_set_mode), from the command line: -ps2hd
+   1080i, -ps2beam beam racing, -ps2rgb24 24-bit colour (with beam racing);
+   else the TV's SD mode with two buffers */
+static int ps2_hd, ps2_flags;
 
 int SDL_GL_SetAttribute(SDL_GLattr attr, int value) { return 0; }
 int SDL_GL_LoadLibrary(const char *path) { return 0; }
@@ -88,6 +92,15 @@ SDL_bool SDL_GL_ExtensionSupported(const char *ext) { return SDL_FALSE; }
 
 SDL_Window *SDL_CreateWindow(const char *title, int x, int y, int w, int h, Uint32 flags) {
   mxgl_init();
+  static int mode_set;
+  if (!mode_set && (ps2_hd || ps2_flags)) {
+    mode_set = 1;
+    if (mxgl_set_mode((ps2_hd ? MXGL_1080I : MXGL_SD) | ps2_flags) < 0)
+      mx_printf("ps2: beam racing: not enough memory\n");
+    int f = mxgl_mode_flags();
+    mx_printf("ps2: %s%s%s\n", ps2_hd ? "1080i" : "TV mode", f & MXGL_BEAM ? ", beam racing" : "",
+              f & MXGL_RGB24 ? ", 24-bit colour" : "");
+  }
   the_window.w = w, the_window.h = h, the_window.flags = flags;
   mxgl_window(w, h);
   mx_printf("ps2: window %d x %d\n", w, h);
@@ -300,18 +313,16 @@ extern "C" void *mx_heap_start(void);
 extern "C" void *mx_heap_end(void);
 
 /* maxsdk's virtual memory (<mx/vm.h>): malloc in up to 128 MiB, paged to a
-   swap file in the game's directory; the core heap (PS2_CORE_HEAP) holds
-   what the DMAC reads: libgl's arenas and textures. Without TLB misses
+   swap file in the game's directory; what the DMAC reads (libgl's arenas
+   and textures) is pinned memory, frames taken as needed. Without TLB misses
    (PCSX2's recompiler) VM stays off and the game has the 32 MiB as before. */
 extern "C" const struct mx_vm_config mx_vm_config = {
     .swap = "host:" PS2_SWAP,
-    .core_heap = PS2_CORE_HEAP,
 };
 
 int main(int argc, char **argv) {
   if (mx_vm_active())
-    mx_printf("Descent 3 on maxsdk: virtual memory %u MiB, core heap %u KiB\n", mx_vm_size() >> 20,
-              PS2_CORE_HEAP >> 10);
+    mx_printf("Descent 3 on maxsdk: virtual memory %u MiB\n", mx_vm_size() >> 20);
   else
     mx_printf("Descent 3 on maxsdk: heap %u KiB\n",
               (unsigned)((char *)mx_heap_end() - (char *)mx_heap_start()) / 1024);
@@ -319,6 +330,8 @@ int main(int argc, char **argv) {
   if (chdir(PS2_DIR) < 0)
     mx_printf("ps2: no directory %s\n", PS2_DIR);
   static char line[] = "descent3 -setdir " PS2_DIR " -tempdir " PS2_DIR " -lowmem -nosound -nomusic " PS2_ARGS;
+  ps2_hd = strstr(line, " -ps2hd") != NULL;
+  ps2_flags = (strstr(line, " -ps2beam") ? MXGL_BEAM : 0) | (strstr(line, " -ps2rgb24") ? MXGL_RGB24 : 0);
   static char *args[64];
   int n = 0;
   for (char *p = strtok(line, " "); p && n < 63; p = strtok(NULL, " "))
