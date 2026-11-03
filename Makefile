@@ -166,6 +166,9 @@ SCRIPT_EXPORTS := InitializeDLL ShutdownDLL GetGOScriptID GetTriggerScriptID Get
   CreateInstance DestroyInstance CallInstanceEvent SaveRestoreState
 SCRIPT_OBJS := $(patsubst %,$(OUT)/scripts/%.o,$(SCRIPTS))
 
+GEN := $(OUT)/gen/d3_version.h
+CXXDEPS := $(GEN) $(LIBCXX_A) $(HERE)/Makefile
+
 $(OUT)/scripts/obj/%.o: $(HERE)/scripts/%.cpp $(CXXDEPS)
 	@mkdir -p $(dir $@)
 	$(CXX) $(D3CXXFLAGS) -I$(HERE)/scripts -c $< -o $@
@@ -198,13 +201,10 @@ D3_OBJS := $(patsubst %,$(OUT)/d3/%.o,$(D3_SRCS)) $(patsubst %,$(OUT)/d3/%.o,$(D
            $(patsubst %,$(OUT)/ps2/%.o,$(PS2_SRCS)) $(patsubst %,$(OUT)/ps2/%.c.o,$(PS2_C)) \
            $(SCRIPT_OBJS) $(OUT)/gen/ps2_modules.o
 
-GEN := $(OUT)/gen/d3_version.h
 $(GEN): $(HERE)/lib/d3_version.h.in
 	@mkdir -p $(dir $@)
 	sed -e 's/@PROJECT_VERSION_MAJOR@/1/' -e 's/@PROJECT_VERSION_MINOR@/5/' \
 	  -e 's/@PROJECT_VERSION_PATCH@/0/' -e 's/@D3_GIT_HASH@/ps2/' $< > $@
-
-CXXDEPS := $(GEN) $(LIBCXX_A) $(HERE)/Makefile
 
 # FRAMES: end after that many frames with a picture (SHOT, host:descent3.tga)
 # (PLAY=1: frames of a level being played only, not of menus and loading);
@@ -263,6 +263,10 @@ all: $(OUT)/d3-linux.hog
 
 # ---- picolibc and libc++ ------------------------------------------------------
 cxxlib: $(LIBCXX_A)
+# made by the libc++ build
+$(LIBCXX)/lib/libc++abi.a: $(LIBCXX_A) ;
+# libgl's objects (mk/mxgl.mk) include this port's picolibc headers
+$(MXGL_OBJS): $(PICOLIBC_A)
 
 $(PICOLIBC_A):
 	@mkdir -p $(LIBOUT)/picolibc
