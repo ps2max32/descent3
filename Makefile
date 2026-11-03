@@ -208,13 +208,14 @@ $(GEN): $(HERE)/lib/d3_version.h.in
 
 # FRAMES: end after that many frames with a picture (SHOT, host:descent3.tga)
 # (PLAY=1: frames of a level being played only, not of menus and loading);
+# PROF=1: a profile (mx/prof.h, tools/prof.py) of the second half of them;
 # ARGS: more of the game's command line; DIR: the game's directory on the
 # file server. They go into $(OUT)/gen/runcfg.h, rewritten only when they
 # change.
 RUNCFG := $(OUT)/gen/runcfg.h
-$(shell mkdir -p $(OUT)/gen; printf '#define PS2_FRAMES %s\n#define PS2_PLAY %s\n#define PS2_ARGS "%s"\n#define PS2_SHOT "%s"\n#define PS2_DIR "%s"\n#define PS2_SWAP "%s"\n' \
+$(shell mkdir -p $(OUT)/gen; printf '#define PS2_FRAMES %s\n#define PS2_PLAY %s\n#define PS2_ARGS "%s"\n#define PS2_SHOT "%s"\n#define PS2_DIR "%s"\n#define PS2_SWAP "%s"\n#define PS2_PROF %s\n' \
   '$(or $(FRAMES),0)' '$(or $(PLAY),0)' '$(ARGS)' '$(or $(SHOT),host:descent3.tga)' '$(or $(DIR),/d3)' \
-  '$(SWAP)' > $(RUNCFG).new; \
+  '$(SWAP)' '$(or $(PROF),0)' > $(RUNCFG).new; \
   cmp -s $(RUNCFG).new $(RUNCFG) || mv $(RUNCFG).new $(RUNCFG); rm -f $(RUNCFG).new)
 
 # the game's main is d3_main: ps2/ps2_sdl.cpp has main

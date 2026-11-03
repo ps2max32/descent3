@@ -109,7 +109,11 @@ float FixSin(angle a) {
 
   s0 = sincos_table[i];
   s1 = sincos_table[i + 1];
+#ifdef __PS2__
+  return s0 + (s1 - s0) * (float)f * (1.0f / 256); /* the EE has no double FPU */
+#else
   return (float)(s0 + ((s1 - s0) * (double)f / 256.0));
+#endif
 }
 
 // Returns the cosine of the given angle.  Linearly interpolates between two entries in a 256-entry table
@@ -122,7 +126,11 @@ float FixCos(angle a) {
 
   c0 = sincos_table[i + 64];
   c1 = sincos_table[i + 64 + 1];
+#ifdef __PS2__
+  return c0 + (c1 - c0) * (float)f * (1.0f / 256); /* the EE has no double FPU */
+#else
   return (float)(c0 + ((c1 - c0) * (double)f / 256.0));
+#endif
 }
 
 // Returns the sine of the given angle, but does no interpolation

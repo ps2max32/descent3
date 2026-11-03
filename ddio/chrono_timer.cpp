@@ -19,7 +19,29 @@
 #include <chrono>
 #include "chrono_timer.h"
 
+#ifdef __PS2__
+/* the EE's cycles (ps2/ps2_gl.cpp) */
+extern "C" uint64_t ps2_cycles(void);
+#endif
+
 namespace D3 {
+
+#ifdef __PS2__
+/* the time from the EE's cycle counter: steady_clock goes through
+   clock_gettime and gettimeofday, several 64-bit divisions in software a
+   call, and the game asks for the time often */
+static uint64_t ps2_start;
+
+void ChronoTimer::Initialize() { ps2_start = ps2_cycles(); }
+
+/* 294912000 cycles a second: 294912 a millisecond, 36864 every 125 us */
+float ChronoTimer::GetTime() { return (float)(ps2_cycles() - ps2_start) * (1.0f / 294912000); }
+
+int64_t ChronoTimer::GetTimeMS() { return (int64_t)((ps2_cycles() - ps2_start) / 294912); }
+
+int64_t ChronoTimer::GetTimeUS() { return (int64_t)((ps2_cycles() - ps2_start) * 125 / 36864); }
+
+#else
 
 void ChronoTimer::Initialize() { m_start_tstamp = std::chrono::steady_clock::now(); }
 
@@ -38,4 +60,5 @@ int64_t ChronoTimer::GetTimeUS() {
       .count();
 }
 
+#endif
 } // namespace D3

@@ -26,6 +26,7 @@ extern "C" {
 #include <mxgl.h>
 #include <mx/debug.h>
 #include <mx/mx.h>
+#include <mx/prof.h>
 }
 
 #include "runcfg.h"
@@ -400,6 +401,19 @@ void ps2_render_polygon_uv2(PosColorUV2Vertex *v, uint32_t nv) {
 
 #include "gamesequence.h"
 
+/* the EE's cycle counter, extended to 64 bits at each call (calls less than
+   14.5 s apart, as libc's clock): the game's timer (ddio/chrono_timer.cpp) */
+extern "C" uint64_t ps2_cycles(void) {
+  static unsigned last, high;
+  int was = mx_di();
+  unsigned c = mx_count();
+  if (c < last)
+    high++;
+  last = c;
+  mx_irq_restore(was);
+  return (uint64_t)high << 32 | c;
+}
+
 void ps2_frame_end(void) {
   static unsigned frame;
   mxgl_end_frame();
@@ -419,7 +433,17 @@ void ps2_frame_end(void) {
     said = frame;
     mx_printf("ps2: frame %u\n", frame);
   }
+#if PS2_PROF
+  /* the profile of the second half of the counted frames */
+  static int prof_on;
+  if (PS2_FRAMES && frame >= PS2_FRAMES / 2 && !prof_on)
+    mx_prof_start(2000), prof_on = 1;
+#endif
   if (PS2_FRAMES && frame == PS2_FRAMES) {
+#if PS2_PROF
+    mx_prof_stop();
+    mx_prof_report(4000);
+#endif
     double s = (double)cycles / MX_EE_HZ;
     mx_printf("ps2: %u frames, %.1f seconds: %.1f fps\n", frame - 1, s, s > 0 ? (frame - 1) / s : 0.0);
     int r = mxgl_screenshot(PS2_SHOT);
