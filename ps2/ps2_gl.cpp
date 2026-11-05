@@ -307,9 +307,6 @@ static void APIENTRY ps2_TexCoordPointer(GLint size, GLenum type, GLsizei stride
 static void APIENTRY ps2_NormalPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *p) {}
 
 /* not on the GS (yet): fog, pixel rectangles */
-static void APIENTRY ps2_Fogf(GLenum p, GLfloat v) {}
-static void APIENTRY ps2_Fogfv(GLenum p, const GLfloat *v) {}
-static void APIENTRY ps2_Fogi(GLenum p, GLint v) {}
 static void APIENTRY ps2_DrawPixels(GLsizei w, GLsizei h, GLenum f, GLenum t, const GLvoid *px) {}
 static void APIENTRY ps2_PixelTransferi(GLenum p, GLint v) {}
 static void APIENTRY ps2_TexCoord4fv(const GLfloat *v) { glTexCoord2f(v[0] / v[3], v[1] / v[3]); }
@@ -484,9 +481,9 @@ static const struct {
     {"glColorPointer", (void *)ps2_ColorPointer},
     {"glTexCoordPointer", (void *)ps2_TexCoordPointer},
     {"glNormalPointer", (void *)ps2_NormalPointer},
-    {"glFogf", (void *)ps2_Fogf},
-    {"glFogfv", (void *)ps2_Fogfv},
-    {"glFogi", (void *)ps2_Fogi},
+    {"glFogf", (void *)glFogf},
+    {"glFogfv", (void *)glFogfv},
+    {"glFogi", (void *)glFogi},
     {"glDrawPixels", (void *)ps2_DrawPixels},
     {"glPixelTransferi", (void *)ps2_PixelTransferi},
     {"glTexCoord4fv", (void *)ps2_TexCoord4fv},

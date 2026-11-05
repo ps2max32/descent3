@@ -315,9 +315,9 @@ ifeq ($(MX_MEMORY),vm)
 	cp $(OUT)/descent3.elf $(RUNDIR)/descent3.elf
 	printf 'host:descent3.elf' > $(RUNDIR)/mxload.txt
 	cp $(MX_LOADER) $(OUT)/d3load.elf
-	PCSX2_EE=interp ~/.claude/skills/ps2-pcsx2-test/run.sh $(OUT)/d3load.elf $(or $(TIMEOUT),3600)
+	PCSX2_EE=interp $(PCSX2_RUN) $(OUT)/d3load.elf $(or $(TIMEOUT),3600)
 else
-	~/.claude/skills/ps2-pcsx2-test/run.sh $(OUT)/descent3.elf $(or $(TIMEOUT),600)
+	$(PCSX2_RUN) $(OUT)/descent3.elf $(or $(TIMEOUT),600)
 endif
 
 clean:
