@@ -1113,6 +1113,7 @@ void newuiMessageBox::Create(const char *title, int type) {
                               NEWUI_MSGBOX_BUTTONS_Y + NEWUI_MSGBOX_BUTTONS_H, NEWUI_BTNF_FRAMED);
     m_btn[MBTN_OK].SetHotkey(KEY_Y);
     m_btn[MBTN_CANCEL].SetHotkey(KEY_N);
+    AddAcceleratorKey(KEY_ENTER, UID_OK); // the pad has no Y
   }
 }
 

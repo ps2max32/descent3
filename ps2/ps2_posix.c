@@ -1,8 +1,8 @@
 /* ps2_posix.c: the POSIX calls under picolibc's stdio and libc++'s
    filesystem, on the IOP file server (<mx/sif.h>).
 
-   The paths are Unix ones: "/" is the server's root ("host:"), so
-   "/d3/d3.hog" is "host:d3/d3.hog"; a relative path is taken from the
+   The paths are Unix ones: "/" is the directory of the ELF, so "/d3/d3.hog"
+   is "d3/d3.hog" there; a relative path is taken from the
    current directory (chdir, "/" at the start). Descriptors 0, 1 and 2 are
    the console (maxsdk's glue: mx_glue_write); the files are 3 and up.
 
@@ -83,12 +83,12 @@ static char *normalize(const char *path, char *out) {
   return out;
 }
 
-/* the server's name of path: "host:" and the absolute path without its
-   first '/' */
+/* the file server's name of path: the absolute path without its first '/',
+   so in the directory of the ELF */
 static const char *host_path(const char *path, char *out) {
   char abs[PATH_MAX];
   normalize(path, abs);
-  snprintf(out, PATH_MAX + 8, "host:%s", abs + 1);
+  snprintf(out, PATH_MAX + 8, "%s", abs + 1);
   return out;
 }
 

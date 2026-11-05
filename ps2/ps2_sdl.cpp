@@ -317,7 +317,7 @@ extern "C" void *mx_heap_end(void);
    and textures) is pinned memory, frames taken as needed. Without TLB misses
    (PCSX2's recompiler) VM stays off and the game has the 32 MiB as before. */
 extern "C" const struct mx_vm_config mx_vm_config = {
-    .swap = "host:" PS2_SWAP,
+    .swap = PS2_SWAP,
 };
 
 int main(int argc, char **argv) {
