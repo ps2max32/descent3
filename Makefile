@@ -22,7 +22,7 @@ MAXSDK_OUT ?= $(PS2MAX)/build/libs/maxsdk
 DEMO     ?= 0
 LIBOUT   := $(PS2MAX)/build/apps/descent3
 # MEMLOG=1 (below) builds apart too
-# the game in virtual memory by default (started by mxload.elf), as the Quakes
+# the game in virtual memory by default (started by mxlink), as the Quakes
 MX_MEMORY ?= vm
 OUT      ?= $(LIBOUT)$(if $(filter 1,$(DEMO)),-demo)$(if $(filter vm,$(MX_MEMORY)),-vm)$(if $(filter 1,$(MEMLOG)),-memlog)
 all: $(OUT)/descent3.elf
@@ -34,7 +34,7 @@ MXGL_ARENA_BYTES ?= 262144
 MXGL_REC_BYTES ?= 393216
 include $(MXGL)/mk/mxgl.mk
 include $(MAXSDK)/mk/maxsdk.mk
-# MX_MEMORY=vm (started by mxload.elf): the game in VM, libgl in core
+# MX_MEMORY=vm (started by mxlink): the game in VM, libgl in core
 MX_CORE_OBJS = $(MXGL_OBJS)
 
 LLVM_SRC ?= $(PS2MAX_LLVM_SRC)
@@ -303,7 +303,7 @@ $(LIBCXX_A): $(PICOLIBC_A)
 # ---- running --------------------------------------------------------------------
 D3DATA   ?=
 RUNDIR   := $(PS2MAX)/build/pcsx2-test
-# MX_MEMORY=vm: through mxload.elf (host:mxload.txt names the game) on the
+# MX_MEMORY=vm: through mxlink's EMU build (host:mxload.txt names the game) on the
 # EE interpreter, the only one of PCSX2's that raises TLB misses; as
 # d3load.elf, since the runner stops the PCSX2 whose -elf it started (and
 # other programs run from mxload.elf too)
