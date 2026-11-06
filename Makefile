@@ -229,17 +229,17 @@ $(OUT)/d3/%.o: $(HERE)/%.c $(PICOLIBC_A)
 	$(CC) $(D3CFLAGS) -c $< -o $@
 $(OUT)/ps2/%.o: $(HERE)/ps2/%.cpp $(CXXDEPS)
 	@mkdir -p $(dir $@)
-	$(CXX) $(D3CXXFLAGS) $(HOT_OPT) -I$(MAXSDK)/include -c $< -o $@
+	$(CXX) $(D3CXXFLAGS) $(HOT_OPT) -I$(MAXSDK)/ee/include -c $< -o $@
 $(OUT)/ps2/%.c.o: $(HERE)/ps2/%.c $(PICOLIBC_A)
 	@mkdir -p $(dir $@)
-	$(CC) $(D3CFLAGS) -I$(MAXSDK)/include -c $< -o $@
+	$(CC) $(D3CFLAGS) -I$(MAXSDK)/ee/include -c $< -o $@
 $(OUT)/zlib/%.o: $(ZLIB_SRC)/%.c $(PICOLIBC_A)
 	@mkdir -p $(dir $@)
 	$(CC) $(D3CFLAGS) -c $< -o $@
 
 # maxsdk's libc glue with its read, write and _exit renamed: ps2/ps2_posix.c
 # has them (files; the end marker), and passes the console's on
-$(OUT)/libc/glue.o: $(MAXSDK)/libc/glue.c $(PICOLIBC_A) $(HERE)/Makefile
+$(OUT)/libc/glue.o: $(MAXSDK)/ee/libc/glue.c $(PICOLIBC_A) $(HERE)/Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(filter-out -ffreestanding,$(CFLAGS)) -nostdlibinc $(SYSINC) -Dread=mx_glue_read \
 	  -Dwrite=mx_glue_write -D_exit=mx_glue_exit -c $< -o $@
@@ -271,7 +271,7 @@ $(MXGL_OBJS): $(PICOLIBC_A)
 
 $(PICOLIBC_A):
 	@mkdir -p $(LIBOUT)/picolibc
-	sed "s|@LLVM@|$(LLVM)|g" $(MAXSDK)/libc/cross-r5900.txt.in > $(LIBOUT)/picolibc/cross.txt
+	sed "s|@LLVM@|$(LLVM)|g" $(MAXSDK)/ee/libc/cross-r5900.txt.in > $(LIBOUT)/picolibc/cross.txt
 	meson setup --wipe $(LIBOUT)/picolibc/build-meson $(PICOLIBC_SRC) \
 	  --cross-file $(LIBOUT)/picolibc/cross.txt --prefix=$(PICOLIBC) -Dmultilib=false \
 	  -Dpicocrt=false -Dsemihost=false -Dtests=false -Dthread-local-storage=false \
