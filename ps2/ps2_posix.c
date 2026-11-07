@@ -28,14 +28,9 @@
 
 ssize_t mx_glue_write(int fd, const void *buf, size_t n);
 void mx_glue_exit(int status) __attribute__((noreturn));
-int mx_printf(const char *fmt, ...);
 
-/* the end of the program (exit, after its handlers): the test runner's end
-   marker with the status */
-void _exit(int status) {
-  mx_printf("@@PS2TEST_END@@ status=%d\n", status);
-  mx_glue_exit(status);
-}
+/* the end of the program (exit, after its handlers) */
+void _exit(int status) { mx_glue_exit(status); }
 
 #define FIO_RDWR 0x0003
 #define FIO_APPEND 0x0100

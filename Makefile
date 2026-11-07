@@ -238,7 +238,7 @@ $(OUT)/zlib/%.o: $(ZLIB_SRC)/%.c $(PICOLIBC_A)
 	$(CC) $(D3CFLAGS) -c $< -o $@
 
 # maxsdk's libc glue with its read, write and _exit renamed: ps2/ps2_posix.c
-# has them (files; the end marker), and passes the console's on
+# has them (files), and passes the console's on
 $(OUT)/libc/glue.o: $(MAXSDK)/ee/libc/glue.c $(PICOLIBC_A) $(HERE)/Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(filter-out -ffreestanding,$(CFLAGS)) -nostdlibinc $(SYSINC) -Dread=mx_glue_read \

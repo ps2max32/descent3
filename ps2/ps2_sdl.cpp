@@ -305,7 +305,6 @@ void SDL_WaitThread(SDL_Thread *t, int *status) {}
 int d3_main(int argc, char *argv[]);
 
 void ps2_end(int status) {
-  mx_printf("@@PS2TEST_END@@ status=%d\n", status);
   mx_exit(status);
 }
 
