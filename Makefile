@@ -245,7 +245,7 @@ $(OUT)/libc/glue.o: $(MAXSDK)/ee/libc/glue.c $(PICOLIBC_A) $(HERE)/Makefile
 	  -Dwrite=mx_glue_write -D_exit=mx_glue_exit -c $< -o $@
 
 $(OUT)/descent3.elf: $(D3_OBJS) $(MXGL_OBJS) $(HLSL_OBJS) $(MX_LIB) $(MX_CRT0) $(MX_LD) $(LIBC_LIBS)
-	$(call link,$@,--error-limit=0 $(MEMWRAP) --defsym=__stack_size=0x80000 $(MX_CRT0) $(D3_OBJS) $(MXGL_OBJS) \
+	$(call link,$@,--error-limit=0 $(MEMWRAP) --defsym=__mx_stack_size=0x80000 $(MX_CRT0) $(D3_OBJS) $(MXGL_OBJS) \
 	  $(HLSL_OBJS) --start-group $(LIBC_LIBS) --end-group)
 
 # ---- d3-linux.hog -----------------------------------------------------------------
