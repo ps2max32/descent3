@@ -202,12 +202,12 @@ ssize_t write(int fd, const void *buf, size_t n) {
   int fio = fio_of(fd);
   if (fio < 0)
     return -1;
-  int r = mx_fio_write(fio, buf, (u32)n);
-  if (r < 0) {
+  /* mx_fio_write: 0 when all n bytes were written */
+  if (mx_fio_write(fio, buf, (u32)n) < 0) {
     errno = EIO;
     return -1;
   }
-  return r;
+  return (ssize_t)n;
 }
 
 off_t lseek(int fd, off_t off, int whence) {
