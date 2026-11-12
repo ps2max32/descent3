@@ -401,7 +401,8 @@ void ps2_render_polygon_uv2(PosColorUV2Vertex *v, uint32_t nv) {
 /* the EE's cycle counter, extended to 64 bits at each call (calls less than
    14.5 s apart, as libc's clock): the game's timer (ddio/chrono_timer.cpp) */
 extern "C" uint64_t ps2_cycles(void) {
-  static unsigned last, high;
+  /* read with interrupts off: core (mx OS plan 4b) */
+  static unsigned last MX_CORE_BSS, high MX_CORE_BSS;
   int was = mx_di();
   unsigned c = mx_count();
   if (c < last)
