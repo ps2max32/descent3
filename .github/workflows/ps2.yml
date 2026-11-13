@@ -1,7 +1,7 @@
-# .github/workflows/ps2.yml of an app repo (quake1, quake2, quake3, descent3),
-# on its default branch (ps2). Replace APP with the repo name.
-# Every push and PR: build with ghcr.io/ps2max32/ps2max, keep the ELF as an
-# artifact. A tag v*: also a GitHub release with the ELF.
+# .github/workflows/ps2.yml of ps2max32/descent3 (template: ci/app.yml of ps2max32/docker).
+# Builds with the commits its ps2max.deps names (LLVM, maxsdk, ...), through
+# the reusable build of ps2max32/docker. Every push and PR: the game as an
+# artifact; a tag v*: also a GitHub release with it.
 name: ps2
 
 on:
@@ -13,25 +13,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: ubuntu-26.04
-    container: ghcr.io/ps2max32/ps2max:latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build
-        run: make -j$(nproc) OUT=$PWD/out
-      - uses: actions/upload-artifact@v7
-        with:
-          name: descent3-${{ github.sha }}
-          path: |
-            out/*.elf
-            out/*.hog
-          if-no-files-found: error
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          apk add --no-cache github-cli
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes \
-            $(ls out/*.elf out/*.hog 2>/dev/null)
+  ps2:
+    uses: ps2max32/docker/.github/workflows/build.yml@main
+    with:
+      artifacts: |
+        out/*.elf
+        out/*.hog
