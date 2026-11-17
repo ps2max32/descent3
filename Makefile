@@ -35,7 +35,7 @@ MXGL_REC_BYTES ?= 393216
 include $(MXGL)/mk/mxgl.mk
 include $(MAXSDK)/mk/maxsdk.mk
 # MX_MEMORY=vm (started by mxlink): the game in VM, libgl in core
-MX_CORE_OBJS = $(MXGL_OBJS)
+MX_FAST_OBJS = $(MXGL_OBJS)
 
 LLVM_SRC ?= $(PS2MAX_LLVM_SRC)
 PICOLIBC_SRC ?= $(PS2MAX)/libs/picolibc
