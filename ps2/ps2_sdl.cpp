@@ -98,7 +98,7 @@ SDL_Window *SDL_CreateWindow(const char *title, int x, int y, int w, int h, Uint
     if (mxgl_set_mode((ps2_hd ? MXGL_1080I : MXGL_SD) | ps2_flags) < 0)
       mx_printf("ps2: beam racing: not enough memory\n");
     int f = mxgl_mode_flags();
-    mx_printf("ps2: %s%s%s\n", ps2_hd ? "1080i" : "TV mode", f & MXGL_BEAM ? ", beam racing" : "",
+    mx_printf("ps2: %s%s%s\n", mxgl_mode_name(), f & MXGL_BEAM ? ", beam racing" : "",
               f & MXGL_RGB24 ? ", 24-bit colour" : "");
   }
   the_window.w = w, the_window.h = h, the_window.flags = flags;
