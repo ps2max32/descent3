@@ -308,23 +308,8 @@ void ps2_end(int status) {
   mx_exit(status);
 }
 
-extern "C" void *mx_heap_start(void);
-extern "C" void *mx_heap_end(void);
-
-/* maxsdk's virtual memory (<mx/vm.h>): malloc in up to 128 MiB, paged to a
-   swap file in the game's directory; what the DMAC reads (libgl's arenas
-   and textures) is pinned memory, frames taken as needed. Without TLB misses
-   (PCSX2's recompiler) VM stays off and the game has the 32 MiB as before. */
-extern "C" const struct mx_vm_config mx_vm_config = {
-    .swap = PS2_SWAP,
-};
-
 int main(int argc, char **argv) {
-  if (mx_vm_active())
-    mx_printf("Descent 3 on maxsdk: virtual memory %u MiB\n", mx_vm_size() >> 20);
-  else
-    mx_printf("Descent 3 on maxsdk: heap %u KiB\n",
-              (unsigned)((char *)mx_heap_end() - (char *)mx_heap_start()) / 1024);
+  mx_printf("Descent 3 on maxsdk: virtual memory %u MiB\n", mx_vm_size() >> 20);
   /* the game's directory on the file server: "/d3" is host:d3 */
   if (chdir(PS2_DIR) < 0)
     mx_printf("ps2: no directory %s\n", PS2_DIR);
